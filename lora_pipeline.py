@@ -352,7 +352,7 @@ def _normalize_lora_unet_path(path: str) -> str:
 		"v_proj":"moku09",
 		"x_embedder.proj.1": "moku10",
 		"t_embedder.1.linear_1": "moku11",
-	   "t_embedder.1.linear_2": "moku12",
+		"t_embedder.1.linear_2": "moku12",
 		"final_layer.adaln_modulation.1": "moku13",
 		"final_layer.adaln_modulation.2": "moku14",
 		"final_layer.linear": "moku15",
