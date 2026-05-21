@@ -1,5 +1,5 @@
 # scripts_anima
-There are scripts that I use when I create images by anima model or make models.
+There are scripts that I use when I create images by using anima in diffusers or make models.
 These scripts are based on [hdae/diffusers-anima](https://github.com/hdae/diffusers-anima).  
 I thank [hdae](https://github.com/hdae) and [claude](https://github.com/claude).
 ## About the problems of hdae/diffusers-anima
