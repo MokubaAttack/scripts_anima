@@ -594,6 +594,7 @@ def _convert_non_diffusers_anima_lora_to_diffusers(
 
 def _split_text(sd,text_encoder_name):
 	dora_present_in_te = any(("dora_scale" in k) and ("lora_te_" in k) for k in sd)
+	dora_present_in_te2 = any(("dora_scale" in k) and ("text_encoders.qwen3_06b.transformer.model." in k) for k in sd)
 	if dora_present_in_te:
 		if is_peft_version("<", "0.9.0"):
 			raise ValueError(
@@ -622,10 +623,39 @@ def _split_text(sd,text_encoder_name):
 					"_lora.down." if "_lora.down." in diffusers_name else ".lora_linear_layer."
 				)
 				te_state_dict[diffusers_name.replace(dora_scale_key_to_replace_te, ".lora_magnitude_vector.")] = (
-					state_dict.pop(key.replace("lora_down.weight", "dora_scale"))
+					sd.pop(k.replace("lora_down.weight", "dora_scale"))
 				)
 			if lora_name_alpha in sd:
 				alpha = sd.pop(lora_name_alpha).item()
+				network_alphas.update(_get_alpha_name(lora_name_alpha, diffusers_name, alpha))
+		elif k.startswith("text_encoders.qwen3_06b.transformer.model."):
+			if not k.endswith("lora_A.weight"):
+				continue
+
+			mk=k.removeprefix("text_encoders.qwen3_06b.transformer.model.")
+			mk=mk.removesuffix('.lora_A.weight')
+			mk=mk.replace(".","_")
+			mk="lora_te_"+mk+".lora_down.weight"
+			k_b=k.removesuffix('.lora_A.weight')+'.lora_B.weight'
+			k_a=k.removesuffix('.lora_A.weight') + ".alpha"
+
+			lora_name = mk.split(".")[0]
+			lora_name_up = lora_name + ".lora_up.weight"
+			lora_name_alpha = lora_name + ".alpha"
+
+			diffusers_name = _convert_text_encoder_lora_key(mk, lora_name)
+			text_sd[diffusers_name] = sd.pop(k)
+			text_sd[diffusers_name.replace(".down.weight", ".up.weight")] = sd.pop(k_b)
+
+			if dora_present_in_te:
+				dora_scale_key_to_replace_te = (
+					"_lora.down." if "_lora.down." in diffusers_name else ".lora_linear_layer."
+				)
+				te_state_dict[diffusers_name.replace(dora_scale_key_to_replace_te, ".lora_magnitude_vector.")] = (
+					sd.pop(k.replace("lora_A.weight", "dora_scale"))
+				)
+			if k_a in sd:
+				alpha = sd.pop(k_a).item()
 				network_alphas.update(_get_alpha_name(lora_name_alpha, diffusers_name, alpha))
 		else:
 			trans_sd[k]=sd.pop(k)
