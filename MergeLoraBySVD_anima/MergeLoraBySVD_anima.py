@@ -261,13 +261,19 @@ def main_part(
 		if dof:
 			for lora in loras:
 				os.remove(lora)
-		win["info"].update("fin")
-		win['RUN'].Update(disabled=False)
+		if win==None:
+			print("fin")
+		else:
+			win["info"].update("fin")
+			win['RUN'].Update(disabled=False)
 
 	except:
 		shutil.rmtree(os.getcwd()+"/safe_temp")
-		win["info"].update("error")
-		win['RUN'].Update(disabled=False)
+		if win==None:
+			print("error")
+		else:
+			win["info"].update("error")
+			win['RUN'].Update(disabled=False)
 
 if __name__=="__main__":
 	import threading
