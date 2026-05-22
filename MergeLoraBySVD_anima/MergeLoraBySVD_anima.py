@@ -189,6 +189,8 @@ def split_part(sd,new_rank,new_conv_rank,device,win):
 
 			merged_lora_sd[lora_module_name + ".lora_B.weight"] = up_weight.to("cpu").contiguous()
 			merged_lora_sd[lora_module_name + ".lora_A.weight"] = down_weight.to("cpu").contiguous()
+	if win==None:
+		print("")
 	return merged_lora_sd
 
 def str_to_dtype(p):
