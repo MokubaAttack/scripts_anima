@@ -92,11 +92,11 @@ def split_pipe(path,i,trans_out,text_out):
 	return keys
 
 def main_part(
-	paths,
-	dim,
-	trans_out,
-	text_out,
-	out_path,
+	paths=[],
+	dim=4,
+	trans_out=True,
+	text_out=True,
+	out_path=None,
 	win=None
 ):
 	if win!=None:
