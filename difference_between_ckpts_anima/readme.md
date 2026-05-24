@@ -1,5 +1,6 @@
 # difference_between_ckpts_anima
 I make [extract_lora_from_models.py](https://github.com/kohya-ss/sd-scripts/blob/main/networks/extract_lora_from_models.py) of kohya-ss/sd-scripts to run for anima model.
+## requirements
 python modules
 ```
 pip install git+https://github.com/hdae/diffusers-anima.git
