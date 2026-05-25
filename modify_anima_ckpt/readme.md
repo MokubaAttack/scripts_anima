@@ -5,7 +5,7 @@ If you modified diffusers_anima by my suggestion, this is not necessary.
 python modules
 ```
 pip install git+https://github.com/hdae/diffusers-anima.git
-pip install FreeSimpleGUI plyer pyperclip
+pip install FreeSimpleGUI pyperclip
 ```
 ## How to use
 1. Run this script.
