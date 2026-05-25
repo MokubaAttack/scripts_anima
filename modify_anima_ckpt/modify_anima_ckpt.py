@@ -73,7 +73,6 @@ if __name__ == '__main__':
     import FreeSimpleGUI as sg
     import tkinter as tk
     import pyperclip
-    from plyer import notification
     import threading
 
     keys=['output','input']
