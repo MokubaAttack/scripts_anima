@@ -189,8 +189,6 @@ def split_part(sd,new_rank,new_conv_rank,device,win):
 
 			merged_lora_sd[lora_module_name + ".lora_B.weight"] = up_weight.to("cpu").contiguous()
 			merged_lora_sd[lora_module_name + ".lora_A.weight"] = down_weight.to("cpu").contiguous()
-	if win==None:
-		print("")
 	return merged_lora_sd
 
 def str_to_dtype(p):
@@ -263,25 +261,18 @@ def main_part(
 		if dof:
 			for lora in loras:
 				os.remove(lora)
-		if win==None:
-			print("fin")
-		else:
-			win["info"].update("fin")
-			win['RUN'].Update(disabled=False)
+		win["info"].update("fin")
+		win['RUN'].Update(disabled=False)
 
 	except:
 		shutil.rmtree(os.getcwd()+"/safe_temp")
-		if win==None:
-			print("error")
-		else:
-			win["info"].update("error")
-			win['RUN'].Update(disabled=False)
+		win["info"].update("error")
+		win['RUN'].Update(disabled=False)
 
 if __name__=="__main__":
 	import threading
 	import tkinter as tk
 	import pyperclip
-	from plyer import notification
 	import FreeSimpleGUI as sg
 
 	sg.theme('GrayGrayGray')
