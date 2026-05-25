@@ -4,7 +4,7 @@ I make [svd_merge_lora.py](https://github.com/kohya-ss/sd-scripts/blob/main/netw
 python modules
 ```
 pip install git+https://github.com/hdae/diffusers-anima.git
-pip install FreeSimpleGUI plyer pyperclip
+pip install FreeSimpleGUI pyperclip
 ```
 ## explanations
 MergeLoraBySVD.main_part(
