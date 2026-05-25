@@ -241,9 +241,9 @@ def mksafe(base_path,loras,ws,out_path,full_file,win=None):
 		os.remove(base_path)
 		if win!=None:
 			win["RUN"].Update(disabled=False)
-			win["info"].update("error")
+			win["info"].update("I failed loading ckpt.")
 		else:
-			print("error")
+			print("I failed loading ckpt.")
 		return
 		
 	if win!=None:
@@ -259,11 +259,20 @@ def mksafe(base_path,loras,ws,out_path,full_file,win=None):
 		win["info"].update("merge lora")
 	else:
 		print("merge lora")
-	for i in range(len(loras)):
-		pipe.load_lora_weights(loras[i], adapter_name="style"+str(i))
-		pipe.set_adapters("style"+str(i), adapter_weights=[ws[i]])
-		pipe.fuse_lora()
-		pipe.unload_lora_weights()
+	try:
+		for i in range(len(loras)):
+			pipe.load_lora_weights(loras[i], adapter_name="style"+str(i))
+			pipe.set_adapters("style"+str(i), adapter_weights=[ws[i]])
+			pipe.fuse_lora()
+			pipe.unload_lora_weights()
+	except:
+		os.remove(base_path)
+		if win!=None:
+			win["RUN"].Update(disabled=False)
+			win["info"].update("I failed loading lora.")
+		else:
+			print("I failed loading lora.")
+		return
 
 	keys=splitpipe(pipe,1,full_file)
 		
@@ -284,7 +293,6 @@ def mksafe(base_path,loras,ws,out_path,full_file,win=None):
 
 if __name__=="__main__":
 	import FreeSimpleGUI as sg
-	from plyer import notification
 	import tkinter as tk
 	import threading,pyperclip
 
