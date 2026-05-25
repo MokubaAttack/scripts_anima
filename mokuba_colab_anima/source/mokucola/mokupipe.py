@@ -24,7 +24,6 @@ from diffusers import (
 import safetensors
 import torch
 import os
-import gc
 import numpy
 import cv2
 from PIL import Image
@@ -34,12 +33,12 @@ from compel import (
 	CompelForSD,
 	CompelForSDXL
 )
-import tomesd
 
 from .meta import plus_meta
 from .imgup import imgup
 from .discord import to_discord
 from .imgshow import imgshow
+from .ccc import flush
 
 sgm_use=[
 	"Euler","Euler a","DPM++ 2M","DPM++ 2M SDE","DPM++ SDE","DPM++","DPM2","DPM2 a","Heun","LMS","UniPC","DPM++ 3M SDE"
@@ -69,7 +68,6 @@ class mokupipe:
 		self.si=True
 
 		self.dtype=torch.float16
-		self.xf=False
 		self.dev="cuda"
 
 	def mkpipe(
@@ -373,7 +371,6 @@ class mokupipe:
 		self.meta_dict["pos"]=pos_emb
 		self.meta_dict["neg"]=neg_emb
 		
-		gc.collect()
 		return 1
 
 	def mkpipe_upscale(self,path):
@@ -395,7 +392,6 @@ class mokupipe:
 		del comple,conditioning
 		self.prompt=prompt
 		self.n_prompt=n_prompt
-		gc.collect()
 		return 1
 
 	def set_outparams(self,out_folder="",j_or_p="j",url="",si=True):
@@ -404,14 +400,13 @@ class mokupipe:
 		self.url=url
 		self.si=si
 
-	def set_diffparams(self,dtype="f16",xf=False,dev="cuda"):
+	def set_diffparams(self,dtype="f16",dev="cuda"):
 		if dtype=="f32":
 			self.dtype=torch.float32
 		elif dtype=="bf16":
 			self.dtype=torch.bfloat16
 		else:
 			self.dtype=torch.float16
-		self.xf=xf
 		self.dev=dev
 
 	def text2image(self,prompt,n_prompt,gs,step,cs,seed,pag,x,y,out):
@@ -460,9 +455,6 @@ class mokupipe:
 				del self.meta_dict[k]
 
 		self.pipe.vae.enable_tiling()
-		if self.xf:
-			self.pipe.enable_xformers_memory_efficient_attention()
-		tomesd.apply_patch(self.pipe, ratio=0.5)
 		
 		if self.prompts==None:
 			self.mkprompt(prompt=prompt,n_prompt=n_prompt)
@@ -521,12 +513,13 @@ class mokupipe:
 					to_discord(self.meta_dict["input"],self.url)
 			images.append(image)
 			del image
-			torch.cuda.empty_cache()
+			flush()
+
 		clear_output(True)
 		print(memo)
 		if self.si:
 			imgshow(imgs=images)
-		gc.collect()
+
 		return images
 
 	def image2imageup(self,prompt,n_prompt,gs,step,cs,seed,pag,x,y,ss,images,out):
@@ -578,9 +571,6 @@ class mokupipe:
 				del self.meta_dict[k]
 
 		self.pipe.vae.enable_tiling()
-		if self.xf:
-			self.pipe.enable_xformers_memory_efficient_attention()
-		tomesd.apply_patch(self.pipe, ratio=0.5)
 		
 		if self.prompts==None:
 			self.mkprompt(prompt=prompt,n_prompt=n_prompt)
@@ -682,12 +672,13 @@ class mokupipe:
 					to_discord(self.meta_dict["input"],self.url)
 			images[j-1]=image
 			del image
-			torch.cuda.empty_cache()
+			flush()
+
 		clear_output(True)
 		print(memo1)
 		if self.si:
 			imgshow(imgs=images)
-		gc.collect()
+
 		return images
 
 	def tileup(self,prompt,n_prompt,gs,step,cs,seed,pag,x,y,ss,images,ccs=None,tile_size=(0,0),ol=0,out=True):
@@ -769,9 +760,6 @@ class mokupipe:
 				del self.meta_dict[k]
 
 		self.pipe.vae.enable_tiling()
-		if self.xf:
-			self.pipe.enable_xformers_memory_efficient_attention()
-		tomesd.apply_patch(self.pipe, ratio=0.5)
 		
 		if self.prompts==None:
 			self.mkprompt(prompt=prompt,n_prompt=n_prompt)
@@ -943,7 +931,7 @@ class mokupipe:
 					result[top:bottom,left:right]=result[top:bottom,left:right]+numpy_result_tile*tile_weight[:,:,numpy.newaxis]
 					weight_sum[top:bottom,left:right]=weight_sum[top:bottom,left:right]+tile_weight[:,:,numpy.newaxis]
 					del tile_weight,result_tile,tile,numpy_result_tile
-					torch.cuda.empty_cache()
+					flush()
 			final_result = (result / weight_sum).astype(numpy.uint8)
 			image = Image.fromarray(final_result)
 			images[j-1]=image
@@ -958,11 +946,13 @@ class mokupipe:
 				if self.url!="":
 					to_discord(self.meta_dict["input"],self.url)
 			del image,final_result,result,weight_sum
+			flush()
+
 		clear_output(True)
 		print(memo1)
 		if self.si:
 			imgshow(imgs=images)	
-		gc.collect()
+
 		return images
 
 	def deldiffusionparams(self):

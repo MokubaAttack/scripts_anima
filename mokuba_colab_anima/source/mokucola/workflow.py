@@ -2,7 +2,6 @@ import random
 import sys
 import requests
 import io
-import gc
 from PIL import Image
 from IPython.display import clear_output
 
@@ -39,7 +38,6 @@ def mokucola(
 	p=None,
 	dtype="f16",
 	dev="cuda",
-	xf=False,
 	ser="colab",
 	del_pipe=True,
 	si=True
@@ -113,7 +111,6 @@ def mokucola(
 			return p
 		del t_list
 	del t
-	gc.collect()
 
 	if p==None:
 		pipe=mokupipe()
@@ -137,7 +134,6 @@ def mokucola(
 
 	pipe.set_diffparams(
 		dtype=dtype,
-		xf=xf,
 		dev=dev
 		)
 	pipe.set_outparams(
@@ -261,7 +257,6 @@ def mokuup(
 	ol=0,
 	dtype="f16",
 	dev="cuda",
-	xf=False,
 	ser="colab",
 	del_pipe=True,
 	si=True
@@ -337,7 +332,6 @@ def mokuup(
 
 	pipe.set_diffparams(
 		dtype=dtype,
-		xf=xf,
 		dev=dev
 		)
 	pipe.set_outparams(

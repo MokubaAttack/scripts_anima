@@ -4,12 +4,12 @@ import safetensors
 import random
 import os
 from IPython.display import clear_output
-import gc
 
 from .meta import plus_meta
 from .discord import to_discord
 from .imgshow import imgshow
 from .imgup import imgup
+from .ccc import flush
 
 class mokuanipipe:
 	def __init__(self):
@@ -107,7 +107,6 @@ class mokuanipipe:
 			self.meta_dict["lora"]="[]"
 		self.meta_dict["loras"]=loras
 		self.meta_dict["lora_weights"]=lora_weights
-		gc.collect()
 		return 1
 
 	def text2image(self,prompt,n_prompt,gs,step,seed,x,y,out,out_folder,si,j_or_p,url):
@@ -169,12 +168,13 @@ class mokuanipipe:
 				if url!="":
 					to_discord(self.meta_dict["input"],url)
 			del image
-			torch.cuda.empty_cache()
+			flush()
+
 		clear_output(True)
 		print(memo)
 		if si:
 			imgshow(imgs=images)
-		gc.collect()
+
 		return images
 		
 	def image2imageup(self,prompt,n_prompt,gs,step,seed,x,y,ss,images,out,out_folder,si,j_or_p,url):
@@ -282,13 +282,13 @@ class mokuanipipe:
 					to_discord(self.meta_dict["input"],url)
 			images[j-1]=image
 			del image
-			torch.cuda.empty_cache()
+			flush()
 			
 		clear_output(True)
 		print(memo1)
 		if si:
 			imgshow(imgs=images)
-		gc.collect()
+
 		return images
 				
 	def mkpipe_upscale(self,path):
