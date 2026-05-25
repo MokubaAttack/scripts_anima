@@ -107,8 +107,7 @@ def main_part(
 			print("the output path is needed to be a safetensors file.")
 		else:
 			win["RUN"].Update(disabled=False)
-			win["info"].update("error")
-			notification.notify(title="error",message="the output path is needed to be a safetensors file.")
+			win["info"].update("the output path is needed to be a safetensors file.")
 		return
 
 	for path in paths:
@@ -117,8 +116,7 @@ def main_part(
 				print(path+" does not exist.")
 			else:
 				win["RUN"].Update(disabled=False)
-				win["info"].update("error")
-				notification.notify(title="error",message=path+" does not exist.")
+				win["info"].update(os.path.basename(path)+" does not exist.")
 			return
 			
 	if trans_out==False and text_out==False:
@@ -126,8 +124,7 @@ def main_part(
 			print("You choose no contents.")
 		else:
 			win["RUN"].Update(disabled=False)
-			win["info"].update("error")
-			notification.notify(title="error",message="You choose no contents.")
+			win["info"].update("You choose no contents.")
 		return
 		
 	try:
@@ -206,7 +203,6 @@ def main_part(
 				else:
 					win["RUN"].Update(disabled=False)
 					win["info"].update("error "+name)
-					notification.notify(title="error",message=name)
 				shutil.rmtree(temp_path)
 				return
 
@@ -225,7 +221,6 @@ def main_part(
 		else:
 			win["RUN"].Update(disabled=False)
 			win["info"].update("fin")
-			notification.notify(title="fin",message=out_path)
 	except:
 		if os.path.exists(temp_path):
 			shutil.rmtree(temp_path)
@@ -233,13 +228,11 @@ def main_part(
 			print("I failed in the output.")
 		else:
 			win["RUN"].Update(disabled=False)
-			win["info"].update("error")
-			notification.notify(title="error",message="I failed in the output.")
+			win["info"].update("I failed in the output.")
 			
 if __name__=="__main__":
 	import tkinter as tk
 	import pyperclip
-	from plyer import notification
 	import threading
 	import FreeSimpleGUI as sg
 
