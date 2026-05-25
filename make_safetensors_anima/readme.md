@@ -4,7 +4,7 @@ It is a script that burns loras in a checkpoint.
 python modules
 ```
 pip install git+https://github.com/hdae/diffusers-anima.git
-pip install FreeSimpleGUI plyer pyperclip
+pip install FreeSimpleGUI pyperclip
 ```
 ## How to use
 1. Run this script.
