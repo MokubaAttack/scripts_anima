@@ -160,8 +160,7 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 			print("the output path is needed to be a safetensors file.")
 		else:
 			win["RUN"].Update(disabled=False)
-			win["info"].update("error")
-			notification.notify(title="error",message="the output path is needed to be a safetensors file.")
+			win["info"].update("the output path is needed to be a safetensors file.")
 		return
 
 	for path in ckpts:
@@ -170,8 +169,7 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 				print(path+" does not exist.")
 			else:
 				win["RUN"].Update(disabled=False)
-				win["info"].update("error")
-				notification.notify(title="error",message=path+" does not exist.")
+				win["info"].update(os.path.basename(path)+" does not exist.")
 			return
 
 	if not(mode in ["normal","tensor1","tensor2"]):
@@ -324,7 +322,6 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 		else:
 			win["RUN"].Update(disabled=False)
 			win["info"].update("fin")
-			notification.notify(title="fin",message=out_path)
 
 	except:
 		if os.path.exists(os.getcwd()+"/safe_temp"):
@@ -333,14 +330,12 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 			print("I failed in the output.")
 		else:
 			win["RUN"].Update(disabled=False)
-			win["info"].update("error")
-			notification.notify(title="error",message="I failed in the output.")
+			win["info"].update("I failed in the output.")
 
 if __name__=="__main__":
 	import FreeSimpleGUI as sg
 	import tkinter as tk
 	import pyperclip
-	from plyer import notification
 	import threading
 
 	sg.theme('TealMono')
