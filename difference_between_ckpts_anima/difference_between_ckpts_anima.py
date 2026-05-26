@@ -49,7 +49,7 @@ def split_pipe(path,i,trans_out,text_out):
 					is_conv2d_1x1 = is_conv2d and child_module.kernel_size == (1, 1)
 					if is_linear or is_conv2d:
 						key=name + "." + child_name
-						if key.startswith("core.transformer_");
+						if key.startswith("core.transformer_"):
 							for k2 in _ANIMA_BLOCK_MODULE_MAP:
 								if _ANIMA_BLOCK_MODULE_MAP[k2] in key:
 									key=key.replace(_ANIMA_BLOCK_MODULE_MAP[k2],k2)
