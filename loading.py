@@ -68,6 +68,8 @@ def resolve_device(device: str) -> str:
         return "cuda"
     if torch.backends.mps.is_available():
         return "mps"
+    if torch.xpu.is_available():
+        return "xpu"
     return "cpu"
 
 
