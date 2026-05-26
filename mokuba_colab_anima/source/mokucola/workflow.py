@@ -171,7 +171,7 @@ def mokucola(
 		)
 
 	if prog_ver!=0:
-		pipe.mkpipe_upscale(Interpolation)
+		pipe.mkpipe_upscale(Interpolation,dev)
 
 	if prog_ver==1:
 		images=pipe.image2imageup(
@@ -341,7 +341,7 @@ def mokuup(
 		si=si
 		)
 
-	pipe.mkpipe_upscale(Interpolation)
+	pipe.mkpipe_upscale(Interpolation,dev)
 	images=pipe.tileup(
 		prompt=prompt,
 		n_prompt=n_prompt,
@@ -466,7 +466,7 @@ def mokuani(
 	)
 
 	if mode!=0:
-		pipe.mkpipe_upscale(Interpolation)
+		pipe.mkpipe_upscale(Interpolation,dev)
 		x=round(up*x/8)*8
 		y=round(up*y/8)*8
 		images=pipe.image2imageup(

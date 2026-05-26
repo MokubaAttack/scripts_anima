@@ -291,5 +291,5 @@ class mokuanipipe:
 
 		return images
 				
-	def mkpipe_upscale(self,path):
-		self.upscaler=imgup(path)
+	def mkpipe_upscale(self,path,dev):
+		self.upscaler=imgup(path,dev)
