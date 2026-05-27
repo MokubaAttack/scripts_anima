@@ -241,8 +241,11 @@ def main_part(
 			keys1=add_part(loras[i],merge_dtype,device,weights[i])
 			if keys1==None:
 				shutil.rmtree(os.getcwd()+"/safe_temp")
-				win["info"].update("error")
-				win['RUN'].Update(disabled=False)
+				if win==None:
+					print("error")
+				else:
+					win["info"].update("error")
+					win['RUN'].Update(disabled=False)
 			keys=keys+keys1
 
 		keys=list(set(keys))
