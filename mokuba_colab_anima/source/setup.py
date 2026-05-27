@@ -20,7 +20,6 @@ setup(
 		"torchvision @ https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp312-cp312-manylinux_2_28_x86_64.whl",
 		"diffusers==0.37.0",
 		"realesrgan",
-		"accelerate",
-		"PEFT",
+		"torchao>=0.16.0",
 	],
 )
