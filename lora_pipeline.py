@@ -356,6 +356,7 @@ def _normalize_lora_unet_path(path: str) -> str:
 		"final_layer.adaln_modulation.1": "moku13",
 		"final_layer.adaln_modulation.2": "moku14",
 		"final_layer.linear": "moku15",
+		"llm_adapter":"moku16",
 	} 
 
 	normalized = path
