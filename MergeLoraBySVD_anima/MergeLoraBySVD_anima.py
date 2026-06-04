@@ -129,10 +129,14 @@ def add_part(path,merge_dtype,device,ratio):
 				conved = torch.nn.functional.conv2d(wa.permute(1, 0, 2, 3), wb).permute(1, 0, 2, 3)
 				weight = weight + ratio * conved * scale
 		else:
-			w2=sd[k+".lokr_w2_a"]@sd[k+".lokr_w2_b"]
-			network_dim = sd[k+".lokr_w2_b"].size()[0]
-			alpha=sd.get(k+".alpha",network_dim )
-			scale = alpha / network_dim
+			if k+".lokr_w2_a" in sd:
+				w2=sd[k+".lokr_w2_a"]@sd[k+".lokr_w2_b"]
+				network_dim = sd[k+".lokr_w2_b"].size()[0]
+				alpha=sd.get(k+".alpha",network_dim )
+				scale = alpha / network_dim
+			else:
+				w2=sd[k+".lokr_w2"]
+				scale=1
 			x1=sd[k+".lokr_w1"].size()[0]
 			y1=sd[k+".lokr_w1"].size()[1]
 			x2=w2.size()[0]
