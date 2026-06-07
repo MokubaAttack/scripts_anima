@@ -268,6 +268,14 @@ def main_part(
 				else:
 					win["info"].update("error")
 					win['RUN'].Update(disabled=False)
+			elif len(keys1)==0:
+				shutil.rmtree(os.getcwd()+"/safe_temp")
+				if win==None:
+					print(os.path.basename(loras[i])+" isn't supported.")
+				else:
+					win["info"].update(os.path.basename(loras[i])+" isn't supported.")
+					win['RUN'].Update(disabled=False)
+				
 			keys=keys+keys1
 
 		keys=list(set(keys))
