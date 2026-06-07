@@ -32,7 +32,6 @@ def mokucola(
 	base_safe="base.safetensors",
 	vae_safe="",
 	pag=3.0,
-	j_or_p="j",
 	url="",
 	p=None,
 	dtype="f16",
@@ -137,7 +136,6 @@ def mokucola(
 		)
 	pipe.set_outparams(
 		out_folder=out_folder,
-		j_or_p=j_or_p,
 		url=url,
 		si=si
 		)
@@ -247,7 +245,6 @@ def mokuup(
 	pag=3.0,
 	url="",
 	out_folder="output",
-	j_or_p="j",
 	p=None,
 	prompt="masterpiece,best quality,ultra detailed",
 	n_prompt="worst quality,low quality,normal quality",
@@ -335,7 +332,6 @@ def mokuup(
 		)
 	pipe.set_outparams(
 		out_folder=out_folder,
-		j_or_p=j_or_p,
 		url=url,
 		si=si
 		)
@@ -380,7 +376,6 @@ def mokuani(
 	seed=0,
 	out_folder="data",
 	base_safe="base.safetensors",
-	j_or_p="j",
 	url="",
 	p=None,
 	dtype="f32",
@@ -460,7 +455,6 @@ def mokuani(
 		out=out,
 		out_folder=out_folder,
 		si=si,
-		j_or_p=j_or_p,
 		url=url
 	)
 
@@ -481,7 +475,6 @@ def mokuani(
 			out=True,
 			out_folder=out_folder,
 			si=si,
-			j_or_p=j_or_p,
 			url=url
 		)
 
