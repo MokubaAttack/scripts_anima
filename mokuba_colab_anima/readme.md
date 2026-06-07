@@ -5,13 +5,13 @@ But you need an abundance of time to make images in Google Colab (you need ~6 mi
 Change the runtime type to T4 GPU.  
 Next, run next code on Notebook.  
 ```
-!pip install https://raw.githubusercontent.com/MokubaAttack/scripts_anima/refs/heads/main/mokuba_colab_anima/mokucola-42.10.128.tar.gz
+!pip install https://raw.githubusercontent.com/MokubaAttack/scripts_anima/refs/heads/main/mokuba_colab_anima/mokucola-42.11.128.tar.gz
 
 import mokucola
 ```
 ## explanations
 mokucola.mokuani(  
-loras, lora_weights, prompt, n_prompt, pic_number, gs, step, sample, sgm, seed, out_folder, base_safe, j_or_p, url, p, dtype, dev, ser, del_pipe, si, mode, up, Interpolation, step2, ss  
+loras, lora_weights, prompt, n_prompt, pic_number, gs, step, sample, sgm, seed, out_folder, base_safe, url, p, dtype, dev, ser, del_pipe, si, mode, up, Interpolation, step2, ss  
 )  
 - base_safe : str  
   It is the checkpoint file.
@@ -47,8 +47,6 @@ loras, lora_weights, prompt, n_prompt, pic_number, gs, step, sample, sgm, seed, 
   It is the output folder path. If the folder doesn't exist, that is made.
 - si : bool  
   If you choice True, output images are shown in the output window.
-- j_or_p : str  
-  It is the format of output files. "j" is JPG format, and "p" is PNG format.
 - url : str  
   If you input the webhook url of discord, images are sent to discord.
 - del_pipe : bool  
@@ -84,5 +82,15 @@ loras, lora_weights, prompt, n_prompt, pic_number, gs, step, sample, sgm, seed, 
 - step2 : int  
   It is Hires steps ( a parameter of hires.fix ).
 - return : mokuanipipe object
+
+Image files are output by naming (index)_(the seed).png in the output folder path. If safetensors files have CivitAi's Version ID in a item of "id" of metadata (In case of a lora file, lora's weight in a item of "weight" is needed too) , Generation metadata is baked in Output files.  
+(Example)  
+lora file  
+"id" : "111111", "weight" : "1"  
+merged lora file  
+"id" : "111111,222222", "weight" : "0.5,0.5"  
+ckpt file  
+"id" : "123456"  
+The metadata is read in CivitAi.
 ## Credits
 [hdae/diffusers-anima](https://github.com/hdae/diffusers-anima)
