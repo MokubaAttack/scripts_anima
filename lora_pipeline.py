@@ -257,13 +257,6 @@ def _fetch_anima_lora_state_dict(
 		from safetensors.torch import load_file as _load_safetensors_file
 
 		state_dict = _load_safetensors_file(model_file)
-		"""
-		try:
-			with safe_open(model_file, framework="pt") as f:
-				metadata = f.metadata() or {}
-		except Exception:
-			metadata = {}
-		"""
 	elif allow_pickle:
 		logger.warning(
 			"Loading LoRA weights from a pickle file (%s). "
@@ -305,6 +298,7 @@ _ANIMA_ROOT_MODULE_MAP = {
 	"x_embedder.proj.1": "core.patch_embed.proj",
 	"t_embedder.1.linear_1": "core.time_embed.t_embedder.linear_1",
 	"t_embedder.1.linear_2": "core.time_embed.t_embedder.linear_2",
+	"t_embedding_norm": "time_embed.norm",
 	"final_layer.adaln_modulation.1": "core.norm_out.linear_1",
 	"final_layer.adaln_modulation.2": "core.norm_out.linear_2",
 	"final_layer.linear": "core.proj_out",
@@ -324,22 +318,7 @@ _LORA_PARAM_SUFFIXES = (
 
 
 def _normalize_lora_unet_path(path: str) -> str:
-	#old
-	"""
-	protected = (
-		"adaln_modulation_self_attn",
-		"adaln_modulation_cross_attn",
-		"adaln_modulation_mlp",
-		"self_attn",
-		"cross_attn",
-		"output_proj",
-		"q_proj",
-		"k_proj",
-		"v_proj",
-	)
-	placeholders = {item: f"__{idx}__" for idx, item in enumerate(protected)}
-	"""
-	#new
+
 	placeholders = {
 		"adaln_modulation_self_attn":"moku01",
 		"adaln_modulation_cross_attn":"moku02",
@@ -430,30 +409,7 @@ def _alpha_scales_from_down_weight(
 		scale_up /= 2.0
 	return scale_down, scale_up
 
-#old
-"""
-def _collect_lora_module_payloads(
-	state_dict: dict[str, torch.Tensor],
-) -> dict[str, dict[str, torch.Tensor | float]]:
-	payloads: dict[str, dict[str, torch.Tensor | float]] = {}
-	for original_key, value in state_dict.items():
-		if "dora_scale" in original_key:
-			continue
 
-		key = original_key.replace("default.", "")
-		module_path, suffix = _split_lora_key_suffix(key)
-		mapped_path = _map_anima_module_path(module_path)
-		mapped_entry = payloads.setdefault(mapped_path, {})
-
-		if suffix == "alpha":
-			mapped_entry[suffix] = _to_float_alpha(value)
-		else:
-			mapped_entry[suffix] = value
-
-	return payloads
-"""
-
-#new
 def _collect_lora_module_payloads(
 	state_dict: dict[str, torch.Tensor],
 ) -> dict[str, torch.Tensor | float]:
@@ -884,6 +840,125 @@ class AnimaLoraLoaderMixin(LoraBaseMixin):
 	def unfuse_lora(self, components: list[str] | None = None, **kwargs):
 		resolved_components = self._lora_loadable_modules if components is None else components
 		super().unfuse_lora(components=resolved_components, **kwargs)
+
+
+	def create_lycoris_from_weights(self,multiplier=1.0,file="lycoris.safetensors",weights_sd=None):
+		from lycoris.wrapper import LycorisNetwork
+		from lycoris.modules import (
+			get_module,
+			make_module
+		)
+		lycoris_key1={
+			"ff_net_0_proj":"mlp_layer1",
+			"ff_net_2":"mlp_layer2",
+			"norm1_linear_1":"adaln_modulation_self_attn_1",
+			"norm1_linear_2":"adaln_modulation_self_attn_2",
+			"attn1_norm_q":"self_attn_q_norm",
+			"attn1_norm_k":"self_attn_k_norm",
+			"attn1_to_q":"self_attn_q_proj",
+			"attn1_to_k":"self_attn_k_proj",
+			"attn1_to_v":"self_attn_v_proj",
+			"attn1_to_out_0":"self_attn_output_proj",
+			"norm2_linear_1":"adaln_modulation_cross_attn_1",
+			"norm2_linear_2":"adaln_modulation_cross_attn_2",
+			"attn2_norm_q":"cross_attn_q_norm",
+			"attn2_norm_k":"cross_attn_k_norm",
+			"attn2_to_q":"cross_attn_q_proj",
+			"attn2_to_k":"cross_attn_k_proj",
+			"attn2_to_v":"cross_attn_v_proj",
+			"attn2_to_out_0":"cross_attn_output_proj",
+			"norm3_linear_1":"adaln_modulation_mlp_1",
+			"norm3_linear_2":"adaln_modulation_mlp_2"
+		}
+		lycoris_key2={
+			"patch_embed_proj":"x_embedder_proj_1",
+			"time_embed_t_embedder_linear_1":"t_embedder_1_linear_1",
+			"time_embed_t_embedder_linear_2":"t_embedder_1_linear_2",
+			"time_embed_norm":"t_embedding_norm",
+			"norm_out_linear_1":"final_layer_adaln_modulation_1",
+			"norm_out_linear_2":"final_layer_adaln_modulation_2",
+			"proj_out":"final_layer_linear"
+		}
+
+		if weights_sd is None:
+			if os.path.splitext(file)[1] == ".safetensors":
+				from safetensors.torch import load_file
+
+				weights_sd = load_file(file)
+			else:
+				weights_sd = torch.load(file, map_location="cpu")
+
+		key_name=[]
+		for k in weights_sd:
+			if k.endswith(".lokr_w1"):
+				key_name.append(k.removesuffix(".lokr_w1"))
+			elif k.endswith(".lokr_w1_a"):
+				key_name.append(k.removesuffix(".lokr_w1_a"))
+
+		end_name=[]
+		for k in ["lokr_w1","lokr_w1_a","lokr_w1_b","lokr_w2","lokr_w2_a","lokr_w2_b","lokr_t1","lokr_t2","alpha","dora_scale"]:
+			if key_name[0]+"."+k in weights_sd:
+				end_name.append(k)
+
+		for k in key_name:
+			m=k.replace(".","_")
+			if "llm_adapter" in m:
+				i=m.index("llm_adapter")
+				m="lycoris_"+m[i:]
+			elif "blocks" in m:
+				i=m.index("blocks")
+				m="lycoris_core_transformer_"+m[i:]
+				for k2 in lycoris_key1:
+					if lycoris_key1[k2] in m:
+						m=m.replace(lycoris_key1[k2],k2)
+			else:
+				for k2 in lycoris_key2:
+					if (k2 in m) or (lycoris_key2[k2] in m):
+						m="lycoris_core_"+k2
+			
+			for k2 in end_name:
+				weights_sd[m+"."+k2]=weights_sd[k+"."+k2]
+				if m!=k:
+					del weights_sd[k+"."+k2]
+
+		# get dim/alpha mapping
+		loras = {}
+		for key in weights_sd:
+			if "." not in key:
+				continue
+
+			lora_name = key.split(".")[0]
+			loras[lora_name] = None
+
+		for name, modules in self.transformer.named_modules():
+			lora_name = f"lycoris_{name}".replace(".", "_")
+			if lora_name in loras:
+				loras[lora_name] = modules
+
+		original_level = logger.level
+		logger.setLevel(logging.ERROR)
+		network = LycorisNetwork(self.transformer, init_only=True)
+		network.multiplier = multiplier
+		network.loras = []
+		logger.setLevel(original_level)
+
+		logger.info("Loading Modules from state dict...")
+		for lora_name, orig_modules in loras.items():
+			if orig_modules is None:
+				continue
+			lyco_type, params = get_module(weights_sd, lora_name)
+			module = make_module(lyco_type, params, lora_name, orig_modules)
+			if module is not None:
+				network.loras.append(module)
+				network.algo_table[module.__class__.__name__] = (
+					network.algo_table.get(module.__class__.__name__, 0) + 1
+				)
+		logger.info(f"{len(network.loras)} Modules Loaded")
+
+		for lora in network.loras:
+			lora.multiplier = multiplier
+
+		return network, weights_sd
 
 
 def _resolve_pipeline_transformer(pipeline: object, transformer_name: str):
