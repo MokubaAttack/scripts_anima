@@ -20,5 +20,6 @@ setup(
 		"diffusers==0.37.0",
 		"realesrgan",
 		"torchao>=0.16.0",
+		"lycoris-lora",
 	],
 )
