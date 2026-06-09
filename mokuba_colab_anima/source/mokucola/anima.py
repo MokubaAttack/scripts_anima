@@ -3,6 +3,7 @@ from diffusers_anima import AnimaPipeline
 import random
 import os
 from IPython.display import clear_output
+from safetensors.torch import load_file
 
 from .meta import plus_meta
 from .discord import to_discord
@@ -64,11 +65,23 @@ class mokuanipipe:
 				if line.endswith(".safetensors"):
 					line=line.replace(".safetensors","")
 				if os.path.exists(line+".safetensors"):
-					self.pipe.load_lora_weights(line+".safetensors",adapter_name="style"+str(i))
+					sd=load_file(line+".safetensors")
+					lora_check=True
+					for k in sd:
+						if k.endswith(".lokr_w1") or k.endswith(".lokr_w1_a"):
+							lora_check=False
+							break
+							
+					if lora_check:
+						self.pipe.load_lora_weights(line+".safetensors",adapter_name="style"+str(i))
+						self.pipe.set_adapters("style"+str(i), adapter_weights=[lora_weights[i]])
+						self.pipe.fuse_lora()
+						self.pipe.unload_lora_weights()
+					else:
+						wrapper,_=self.pipe.create_lycoris_from_weights(multiplier=lora_weights[i],weights_sd=sd)
+						wrapper.merge_to()
+					
 					print(line+".safetensors is loaded.")
-					self.pipe.set_adapters("style"+str(i), adapter_weights=[lora_weights[i]])
-					self.pipe.fuse_lora()
-					self.pipe.unload_lora_weights()
 
 					list1,list2=getid(line+".safetensors",lora_weights[i])
 					meta_id_list=meta_id_list+list1
