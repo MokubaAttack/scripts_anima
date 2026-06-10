@@ -151,7 +151,7 @@ class mokuanipipe:
 
 			if out:
 				self.meta_dict["se"]=str(i)
-				self.meta_dict["input"]=out_folder+"/"+str(j)+"_"+str(i)+".png"
+				self.meta_dict["input"]=out_folder+"/"+str(j)+"_"+str(i)+".jpg"
 				plus_meta(self.meta_dict,image)
 				if url!="":
 					to_discord(self.meta_dict["input"],url)
@@ -261,7 +261,7 @@ class mokuanipipe:
 		
 			if out:
 				self.meta_dict["se"]=str(i)
-				self.meta_dict["input"]=out_folder+"/"+str(j)+"_"+str(i)+".png"
+				self.meta_dict["input"]=out_folder+"/"+str(j)+"_"+str(i)+".jpg"
 				plus_meta(self.meta_dict,image)
 				if url!="":
 					to_discord(self.meta_dict["input"],url)
