@@ -28,3 +28,4 @@ I introduced hdae/diffusers-anima module to mokucola. But you need an abundance 
 ## Credits
 [hdae/diffusers-anima](https://github.com/hdae/diffusers-anima)  
 [kohya-ss/sd-scripts](https://github.com/kohya-ss/sd-scripts)
+[KohakuBlueleaf/LyCORIS](https://github.com/KohakuBlueleaf/LyCORIS)
