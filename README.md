@@ -7,6 +7,12 @@ When you make images by using hdae/diffusers-anima module, you have errors to lo
 There was a small mistake in their code. Then I modified [hdae/diffusers-anima/src/diffusers_anima/loaders/lora_pipeline.py](https://github.com/hdae/diffusers-anima/blob/main/src/diffusers_anima/loaders/lora_pipeline.py) and [hdae/diffusers-anima/src/diffusers_anima/pipelines/anima/loading.py](https://github.com/hdae/diffusers-anima/blob/main/src/diffusers_anima/pipelines/anima/loading.py).  
 When you overwrite their codes in modyfied codes, you can images by using hdae/diffusers-anima module.  
 When you don't know it well, please run [modify.py](https://github.com/MokubaAttack/scripts_anima/blob/main/modify.py).
+## Supporting LyCORIS
+I make the module to support [LyCORIS](https://github.com/KohakuBlueleaf/LyCORIS). In next example, you can use.  
+```
+wrapper, _ = AnimaPipeline.create_lycoris_from_weights( multiplier = 1.0, file = "lycoris.safetensors", weights_sd = None)
+wrapper.merge_to()
+```
 ## [MergeLoraBySVD_anima](https://github.com/MokubaAttack/scripts_anima/tree/main/MergeLoraBySVD_anima)
 I make [svd_merge_lora.py](https://github.com/kohya-ss/sd-scripts/blob/main/networks/svd_merge_lora.py) of kohya-ss/sd-scripts to run for anima model.
 ## [difference_between_ckpts_anima](https://github.com/MokubaAttack/scripts_anima/tree/main/difference_between_ckpts_anima)
