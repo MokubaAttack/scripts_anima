@@ -21,5 +21,6 @@ setup(
 		"realesrgan",
 		"torchao>=0.16.0",
 		"lycoris-lora",
+		"piexif",
 	],
 )
