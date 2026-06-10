@@ -24,4 +24,4 @@ difference_between_ckpts_anima.main_part(
   
 )
 ## Credits
-[kohya-ss/sd-scripts](https://github.com/kohya-ss/sd-scripts)
+- [kohya-ss/sd-scripts](https://github.com/kohya-ss/sd-scripts)
