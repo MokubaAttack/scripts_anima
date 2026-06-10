@@ -93,4 +93,5 @@ ckpt file
 "id" : "123456"  
 The metadata is read in CivitAi.
 ## Credits
-[hdae/diffusers-anima](https://github.com/hdae/diffusers-anima)
+- [hdae/diffusers-anima](https://github.com/hdae/diffusers-anima)
+- [KohakuBlueleaf/LyCORIS](https://github.com/KohakuBlueleaf/LyCORIS)
