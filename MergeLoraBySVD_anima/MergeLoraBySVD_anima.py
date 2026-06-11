@@ -63,18 +63,15 @@ def add_part(path,merge_dtype,device,ratio):
 	all_keys=list(sd.keys())
 	keys=[]
 	for k in all_keys:
-		if not((".lora_A.weight" in k) or (".lora_down.weight" in k) or (".lokr_w1" in k)):
+		if not((".lora_A.weight" in k) or (".lora_down.weight" in k)):
 			continue
 
 		if ".lora_A.weight" in k:
 			s=".lora_A.weight"
 			k=k.removesuffix(".lora_A.weight")
-		elif ".lora_down.weight" in k:
+		else:
 			s=".lora_down.weight"
 			k=k.removesuffix(".lora_down.weight")
-		else:
-			s=".lokr_w1"
-			k=k.removesuffix(".lokr_w1")
 
 		name=convkey(k)
 		if name==None:
@@ -85,71 +82,48 @@ def add_part(path,merge_dtype,device,ratio):
 		else:
 			merged_sd={}
 
-		if s==".lora_A.weight" or s==".lora_down.weight":
-			if s==".lora_A.weight":
-				wa=sd[k+".lora_A.weight"]
-				wb=sd[k+".lora_B.weight"]
-			else:
-				wa=sd[k+".lora_down.weight"]
-				wb=sd[k+".lora_up.weight"]
-
-			network_dim = wa.size()[0]
-			alpha=sd.get(k+".alpha",network_dim )
-			in_dim = wa.size()[1]
-			out_dim = wb.size()[0]
-			conv2d = len(wa.size()) == 4
-			kernel_size = None if not conv2d else wa.size()[2:4]
-
-			if name not in merged_sd:
-				weight = torch.zeros((out_dim, in_dim, *kernel_size) if conv2d else (out_dim, in_dim), dtype=merge_dtype)
-			else:
-				weight = merged_sd[name]
-			if device:
-				weight = weight.to(device)
-
-			if device:
-				wb = wb.to(device)
-				wa = wa.to(device)
-
-			scale = alpha / network_dim
-
-			if device:
-				scale = scale.to(device)
-
-			if not conv2d:
-				weight = weight + ratio * (wb @ wa) * scale
-			elif kernel_size == (1, 1):
-				weight = (
-					weight
-					+ ratio
-					* (wb.squeeze(3).squeeze(2) @ wa.squeeze(3).squeeze(2)).unsqueeze(2).unsqueeze(3)
-					* scale
-				)
-			else:
-				conved = torch.nn.functional.conv2d(wa.permute(1, 0, 2, 3), wb).permute(1, 0, 2, 3)
-				weight = weight + ratio * conved * scale
+		if s==".lora_A.weight":
+			wa=sd[k+".lora_A.weight"]
+			wb=sd[k+".lora_B.weight"]
 		else:
-			if k+".lokr_w2_a" in sd:
-				w2=sd[k+".lokr_w2_a"]@sd[k+".lokr_w2_b"]
-				network_dim = sd[k+".lokr_w2_b"].size()[0]
-				alpha=sd.get(k+".alpha",network_dim )
-				scale = alpha / network_dim
-			else:
-				w2=sd[k+".lokr_w2"]
-				scale=1
-			x1=sd[k+".lokr_w1"].size()[0]
-			y1=sd[k+".lokr_w1"].size()[1]
-			x2=w2.size()[0]
-			y2=w2.size()[1]
-			weight=torch.ones((x1*x2,y1*y2),dtype=merge_dtype)
-			for i in range(y1):
-				for j in range(x1):
-					weight[j*x2:(j+1)*x2,i*y2:(i+1)*y2]=sd[k+".lokr_w1"][j,i]*w2*scale
+			wa=sd[k+".lora_down.weight"]
+			wb=sd[k+".lora_up.weight"]
 
-			if name not in merged_sd:
-				weight = torch.zeros((x1*x2,y1*y2), dtype=merge_dtype) + ratio * weight
-			else:
-				weight = merged_sd[name] + ratio * weight
+		network_dim = wa.size()[0]
+		alpha=sd.get(k+".alpha",network_dim )
+		in_dim = wa.size()[1]
+		out_dim = wb.size()[0]
+		conv2d = len(wa.size()) == 4
+		kernel_size = None if not conv2d else wa.size()[2:4]
+
+		if name not in merged_sd:
+			weight = torch.zeros((out_dim, in_dim, *kernel_size) if conv2d else (out_dim, in_dim), dtype=merge_dtype)
+		else:
+			weight = merged_sd[name]
+		if device:
+			weight = weight.to(device)
+
+		if device:
+			wb = wb.to(device)
+			wa = wa.to(device)
+
+		scale = alpha / network_dim
+
+		if device:
+			scale = scale.to(device)
+
+		if not conv2d:
+			weight = weight + ratio * (wb @ wa) * scale
+		elif kernel_size == (1, 1):
+			weight = (
+				weight
+				+ ratio
+				* (wb.squeeze(3).squeeze(2) @ wa.squeeze(3).squeeze(2)).unsqueeze(2).unsqueeze(3)
+				* scale
+			)
+		else:
+			conved = torch.nn.functional.conv2d(wa.permute(1, 0, 2, 3), wb).permute(1, 0, 2, 3)
+			weight = weight + ratio * conved * scale
 
 		merged_sd[name] = weight
 		save_file(merged_sd,os.getcwd()+"/safe_temp/"+name+".safetensors")
@@ -243,6 +217,7 @@ def main_part(
 		else:
 			win["info"].update("number of models must be equal to number of ratios.")
 			win['RUN'].Update(disabled=False)
+		return
 
 	try:
 		merge_dtype = str_to_dtype(precision)
@@ -268,6 +243,7 @@ def main_part(
 				else:
 					win["info"].update("error")
 					win['RUN'].Update(disabled=False)
+				return
 			elif len(keys1)==0:
 				shutil.rmtree(os.getcwd()+"/safe_temp")
 				if win==None:
@@ -275,7 +251,7 @@ def main_part(
 				else:
 					win["info"].update(os.path.basename(loras[i])+" isn't supported.")
 					win['RUN'].Update(disabled=False)
-				
+				return
 			keys=keys+keys1
 
 		keys=list(set(keys))
