@@ -895,11 +895,6 @@ class AnimaLoraLoaderMixin(LoraBaseMixin):
 			elif k.endswith(".lokr_w1_a"):
 				key_name.append(k.removesuffix(".lokr_w1_a"))
 
-		end_name=[]
-		for k in ["lokr_w1","lokr_w1_a","lokr_w1_b","lokr_w2","lokr_w2_a","lokr_w2_b","lokr_t1","lokr_t2","alpha","dora_scale"]:
-			if key_name[0]+"."+k in weights_sd:
-				end_name.append(k)
-
 		for k in key_name:
 			m=k.replace(".","_")
 			if "llm_adapter" in m:
@@ -916,10 +911,11 @@ class AnimaLoraLoaderMixin(LoraBaseMixin):
 					if (k2 in m) or (lycoris_key2[k2] in m):
 						m="lycoris_core_"+k2
 			
-			for k2 in end_name:
-				weights_sd[m+"."+k2]=weights_sd[k+"."+k2]
-				if m!=k:
-					del weights_sd[k+"."+k2]
+			for k2 in ["lokr_w1","lokr_w1_a","lokr_w1_b","lokr_w2","lokr_w2_a","lokr_w2_b","lokr_t1","lokr_t2","alpha","dora_scale"]:
+				if k+"."+k2 in weights_sd:
+					weights_sd[m+"."+k2]=weights_sd[k+"."+k2]
+					if m!=k:
+						del weights_sd[k+"."+k2]
 
 		# get dim/alpha mapping
 		loras = {}
