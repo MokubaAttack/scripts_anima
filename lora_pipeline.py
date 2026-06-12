@@ -911,12 +911,14 @@ class AnimaLoraLoaderMixin(LoraBaseMixin):
 			else:
 				weights_sd = torch.load(file, map_location="cpu")
 
-		first_key=list(weights_sd)[0]
 		MODULE_type=None
 		for m in MODULE_LIST:
 			for k in m.weight_list_det:
-				if first_key.endswith(k):
-					MODULE_type=m
+				for k2 in weights_sd:
+					if k2.endswith(k):
+						MODULE_type=m
+						break
+				if MODULE_type!=None:
 					break
 			if MODULE_type!=None:
 				break
