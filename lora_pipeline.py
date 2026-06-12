@@ -858,7 +858,6 @@ class AnimaLoraLoaderMixin(LoraBaseMixin):
 		from lycoris.modules.glora import GLoRAModule
 		from lycoris.modules.dylora import DyLoraModule
 		from lycoris.modules.ia3 import IA3Module
-		from lycoris.modules.tlora import TLoraModule
 
 		MODULE_LIST = [
 			LoConModule,
@@ -871,7 +870,6 @@ class AnimaLoraLoaderMixin(LoraBaseMixin):
 			ButterflyOFTModule,
 			GLoRAModule,
 			DyLoraModule,
-			TLoraModule,
 		]
 		lycoris_key1={
 			"ff_net_0_proj":"mlp_layer1",
