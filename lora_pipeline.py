@@ -848,6 +848,32 @@ class AnimaLoraLoaderMixin(LoraBaseMixin):
 			get_module,
 			make_module
 		)
+		from lycoris.modules.locon import LoConModule
+		from lycoris.modules.loha import LohaModule
+		from lycoris.modules.lokr import LokrModule
+		from lycoris.modules.full import FullModule
+		from lycoris.modules.norms import NormModule
+		from lycoris.modules.diag_oft import DiagOFTModule
+		from lycoris.modules.boft import ButterflyOFTModule
+		from lycoris.modules.glora import GLoRAModule
+		from lycoris.modules.dylora import DyLoraModule
+		from lycoris.modules.ia3 import IA3Module
+		from lycoris.modules.tlora import TLoraModule
+
+
+		MODULE_LIST = [
+			LoConModule,
+			LohaModule,
+			IA3Module,
+			LokrModule,
+			FullModule,
+			NormModule,
+			DiagOFTModule,
+			ButterflyOFTModule,
+			GLoRAModule,
+			DyLoraModule,
+			TLoraModule,
+		]
 		lycoris_key1={
 			"ff_net_0_proj":"mlp_layer1",
 			"ff_net_2":"mlp_layer2",
@@ -888,12 +914,23 @@ class AnimaLoraLoaderMixin(LoraBaseMixin):
 			else:
 				weights_sd = torch.load(file, map_location="cpu")
 
+		first_key=list(weights_sd)[0]
+		MODULE_type=None
+		for m in MODULE_LIST:
+			for k in m.weight_list_det:
+				if first_key.endswith(k):
+					MODULE_type=m
+					break
+			if MODULE_type!=None:
+				break
+		if MODULE_type==None:
+			raise ValueError('These weights are not supported.')
+
 		key_name=[]
 		for k in weights_sd:
-			if k.endswith(".lokr_w1"):
-				key_name.append(k.removesuffix(".lokr_w1"))
-			elif k.endswith(".lokr_w1_a"):
-				key_name.append(k.removesuffix(".lokr_w1_a"))
+			for k2 in MODULE_type.weight_list_det:
+				if k.endswith("."+k2):
+					key_name.append(k.removesuffix("."+k2))
 
 		for k in key_name:
 			m=k.replace(".","_")
@@ -911,7 +948,7 @@ class AnimaLoraLoaderMixin(LoraBaseMixin):
 					if (k2 in m) or (lycoris_key2[k2] in m):
 						m="lycoris_core_"+k2
 			
-			for k2 in ["lokr_w1","lokr_w1_a","lokr_w1_b","lokr_w2","lokr_w2_a","lokr_w2_b","lokr_t1","lokr_t2","alpha","dora_scale"]:
+			for k2 in MODULE_type.weight_list:
 				if k+"."+k2 in weights_sd:
 					weights_sd[m+"."+k2]=weights_sd[k+"."+k2]
 					if m!=k:
