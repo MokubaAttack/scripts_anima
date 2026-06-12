@@ -860,7 +860,6 @@ class AnimaLoraLoaderMixin(LoraBaseMixin):
 		from lycoris.modules.ia3 import IA3Module
 		from lycoris.modules.tlora import TLoraModule
 
-
 		MODULE_LIST = [
 			LoConModule,
 			LohaModule,
