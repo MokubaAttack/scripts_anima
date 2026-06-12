@@ -66,10 +66,10 @@ class mokuanipipe:
 					line=line.replace(".safetensors","")
 				if os.path.exists(line+".safetensors"):
 					sd=load_file(line+".safetensors")
-					lora_check=True
+					lora_check=False
 					for k in sd:
-						if k.endswith(".lokr_w1") or k.endswith(".lokr_w1_a"):
-							lora_check=False
+						if k.endswith(".lora_up.weight") or k.endswith(".lora_B.weight"):
+							lora_check=True
 							break
 							
 					if lora_check:
