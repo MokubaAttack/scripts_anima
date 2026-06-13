@@ -16,7 +16,7 @@ loras, lora_weights, prompt, n_prompt, pic_number, gs, step, sample, sgm, seed, 
 - base_safe : str  
   It is the checkpoint file.
 - loras : str list  
-  It is the name list of the lora file excluding extension. If there is not that file in the working folder, you must input the absolute path.
+  It is the name list of the lora file excluding extension. If there is not that file in the working folder, you must input the absolute path. LyCORIS is supported too.
 - lora_weights : float list  
   It is the lora's weight list.
 - prompt : str  
@@ -83,7 +83,7 @@ loras, lora_weights, prompt, n_prompt, pic_number, gs, step, sample, sgm, seed, 
   It is Hires steps ( a parameter of hires.fix ).
 - return : mokuanipipe object
 
-Image files are output by naming (index)_(the seed).png in the output folder path. If safetensors files have CivitAi's Version ID in a item of "id" of metadata (In case of a lora file, lora's weight in a item of "weight" is needed too) , Generation metadata is baked in Output files.  
+Image files are output by naming (index)_(the seed).jpg in the output folder path. If safetensors files have CivitAi's Version ID in a item of "id" of metadata (In case of a lora file, lora's weight in a item of "weight" is needed too) , Generation metadata is baked in Output files.  
 (Example)  
 lora file  
 "id" : "111111", "weight" : "1"  
