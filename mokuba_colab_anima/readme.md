@@ -70,7 +70,7 @@ loras, lora_weights, prompt, n_prompt, pic_number, gs, step, sample, sgm, seed, 
   - 0 : normal
   - 1 : hires.fix
 - up : float  
-  It is the upscale ( a parameter of hires.fix ).
+  It is Hires upscale ( a parameter of hires.fix ).
 - Interpolation : int or str  
   It is the interpolation method of the upscaling. If you input pth file of ESRGAN, images are upscaled by ESRGAN.
   - 1 : NEAREST
