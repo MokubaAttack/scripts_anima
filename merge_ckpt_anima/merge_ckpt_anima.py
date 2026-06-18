@@ -8,6 +8,11 @@ from safetensors.torch import (
 )
 import torch
 from diffusers_anima import AnimaPipeline
+from diffusers_anima.pipelines.anima.loading import (
+	_strip_wrapping_prefixes,
+	_vae_text_check
+)
+from diffusers_anima.models.transformers.modeling_anima_transformer import _convert_anima_state_dict_to_diffusers
 
 trans_key1={
 	"ff.net.0.proj.weight":"mlp.layer1.weight",
@@ -88,60 +93,24 @@ vae_key3={
 	"head.2":"conv_out",
 }
 
-def spckpt(path,i,ff):
-	pipe=AnimaPipeline.from_single_file(path,cache_dir=os.getcwd()+"/pipecache")
-	keys=[]
-	for k,p in getattr(pipe, "transformer").named_parameters():
-		osd={}
-		if k.startswith("core."):
-			k=k.replace("core.","")
-			if k.startswith("transformer_"):
-				k=k.replace("transformer_","")
-				for key in trans_key1:
-					if k.endswith(key):
-						k=k.replace(key,trans_key1[key])
-			else:
-				k=trans_key2[k]
-		k="model.diffusion_model."+k
-		osd[k]=p.data.to(torch.float32)
-		save_file(osd,os.getcwd()+"/safe_temp/"+str(i)+"_"+k+".safetensors")
-		keys.append(k)
-
+def modckpt(path,ff):
+	sd=load_file(path)
+	sd = _strip_wrapping_prefixes(sd)
+	core_state_dict, llm_adapter_state_dict = _convert_anima_state_dict_to_diffusers(sd)
+	sd={**core_state_dict, **llm_adapter_state_dict}
 	if ff:
-		for k,p in getattr(pipe, "vae").named_parameters():
-			osd={}
-			if k.startswith("encoder."):
-				for key in vae_key2:
-					if vae_key2[key] in k:
-						k=k.replace(vae_key2[key],key)
-			elif k.startswith("decoder."):
-				for key in vae_key3:
-					if vae_key3[key] in k:
-						k=k.replace(vae_key3[key],key)
-			else:
-				for key in vae_key1:
-					if vae_key1[key] in k:
-						k=k.replace(vae_key1[key],key)
-			k="first_stage_model."+k
-			osd[k]=p.data.to(torch.float32)
-			save_file(osd,os.getcwd()+"/safe_temp/"+str(i)+"_"+k+".safetensors")
-			keys.append(k)
-			
-		for k,p in getattr(pipe, "text_encoder").named_parameters():
-			osd={}
-			k="cond_stage_model.qwen3_06b.transformer.model."+k
-			osd[k]=p.data.to(torch.float32)
-			save_file(osd,os.getcwd()+"/safe_temp/"+str(i)+"_"+k+".safetensors")
-			keys.append(k)
-		
-	return keys
-
-def del_safe(k):
-	if os.path.exists(os.getcwd()+"/safe_temp/1_"+k+".safetensors"):
-		os.remove(os.getcwd()+"/safe_temp/1_"+k+".safetensors")
-	if os.path.exists(os.getcwd()+"/safe_temp/2_"+k+".safetensors"):
-		os.remove(os.getcwd()+"/safe_temp/2_"+k+".safetensors")
-	gc.collect()
+		vsd,tsd=_vae_text_check(path)
+		if vsd=={} or tsd=={}:
+			pipe=AnimaPipeline.from_pretrained("hdae/diffusers-anima-preview",cache_dir=os.getcwd()+"/pipecache",transformer=None)
+			if vsd=={}:
+				for k,p in getattr(pipe, "vae").named_parameters():
+					vsd[k]=p.data
+			if tsd=={}:
+				for k,p in getattr(pipe, "text_encoder").named_parameters():
+					tsd[k]=p.data
+		return sd,vsd,tsd
+	else:
+		return sd,{},{}
 
 def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 	if win!=None:
@@ -171,33 +140,49 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 		if os.path.exists(os.getcwd()+"/safe_temp"):
 			shutil.rmtree(os.getcwd()+"/safe_temp")
 		os.mkdir(os.getcwd()+"/safe_temp")
-	
-		c1=spckpt(ckpts[0],1,ff)
-		c2=spckpt(ckpts[1],2,ff)
-	
-		data_dict=list(set(c1+c2))
-		dict_sum=len(data_dict)
+
+		if win!=None:
+			win["info"].update("loading "+os.path.basename(ckpts[0]))
+		else:
+			print("loading "+os.path.basename(ckpts[0]))
+		sd1,vsd1,tsd1=modckpt(ckpts[0],ff)
+		
+		if win!=None:
+			win["info"].update("loading "+os.path.basename(ckpts[1]))
+		else:
+			print("loading "+os.path.basename(ckpts[1]))
+		sd2,vsd2,tsd2=modckpt(ckpts[1],ff)
+
+		sd_keys=list(sd1)
+		vsd_keys=list(vsd1)
+		tsd_keys=list(tsd1)
+		data_dict=[]
+		dict_sum=len(list(sd1)+list(vsd1)+list(tsd1))
 		key_count=0
-	
+
 		with torch.no_grad():
-			for k in data_dict:
+			for k in sd_keys:
 				key_count=key_count+1
 				if win!=None:
 					win["info"].update("merging "+str(key_count)+"/"+str(dict_sum))
 				else:
 					print("\rmerging "+str(key_count)+"/"+str(dict_sum),end="")
-	
+
 				out_dict={}
-				if os.path.exists(os.getcwd()+"/safe_temp/1_"+k+".safetensors"):
-					t1=load_file(os.getcwd()+"/safe_temp/1_"+k+".safetensors")[k].to(torch.float32)
-				else:
-					t1=(load_file(os.getcwd()+"/safe_temp/2_"+k+".safetensors")[k]*0).to(torch.float32)
-	
-				if os.path.exists(os.getcwd()+"/safe_temp/2_"+k+".safetensors"):
-					t2=load_file(os.getcwd()+"/safe_temp/2_"+k+".safetensors")[k].to(torch.float32)
-				else:
-					t2=(load_file(os.getcwd()+"/safe_temp/1_"+k+".safetensors")[k]*0).to(torch.float32)
-	
+				t1=sd1.pop(k).to(torch.float32)
+				t2=sd2.pop(k).to(torch.float32)
+
+				if k.startswith("core."):
+					k=k.replace("core.","")
+					if k.startswith("transformer_"):
+						k=k.replace("transformer_","")
+						for key in trans_key1:
+							if k.endswith(key):
+								k=k.replace(key,trans_key1[key])
+					else:
+						k=trans_key2[k]
+				k="model.diffusion_model."+k
+
 				if k.startswith("model.diffusion_model.blocks."):
 					ind=int(k.split(".")[3])
 					w=ws[ind+1]
@@ -205,10 +190,10 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 					w=ws[29]
 				else:
 					w=ws[0]
-	
+
 				if mode=="normal":
 					out_dict[k]=((1-w)*t1+w*t2).to(torch.bfloat16)
-	
+
 				elif "tensor" in mode:
 					w1=(1-w)/2
 					w2=w
@@ -250,14 +235,153 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 							t1[:,w1:w2,:,:,:]=t2[:,w1:w2,:,:,:]
 					out_dict[k]=t1.to(torch.bfloat16)
 					del w1,w2
-	
+
 				save_file(out_dict,os.getcwd()+"/safe_temp/"+k+".safetensors")
+				data_dict.append(k)
 				del w,out_dict,t1,t2
-				del_safe(k)
-	
+			
+			for k in vsd_keys:
+				key_count=key_count+1
+				if win!=None:
+					win["info"].update("merging "+str(key_count)+"/"+str(dict_sum))
+				else:
+					print("\rmerging "+str(key_count)+"/"+str(dict_sum),end="")
+
+				out_dict={}
+				t1=vsd1.pop(k).to(torch.float32)
+				t2=vsd2.pop(k).to(torch.float32)
+
+				if k.startswith("encoder."):
+					for key in vae_key2:
+						if vae_key2[key] in k:
+							k=k.replace(vae_key2[key],key)
+				elif k.startswith("decoder."):
+					for key in vae_key3:
+						if vae_key3[key] in k:
+							k=k.replace(vae_key3[key],key)
+				else:
+					for key in vae_key1:
+						if vae_key1[key] in k:
+							k=k.replace(vae_key1[key],key)
+				k="first_stage_model."+k
+
+				w=ws[0]
+
+				if mode=="normal":
+					out_dict[k]=((1-w)*t1+w*t2).to(torch.bfloat16)
+
+				elif "tensor" in mode:
+					w1=(1-w)/2
+					w2=w
+					w1=round(t1.size()[0]*w1)
+					w2=round(t1.size()[0]*(w1+w2))
+					if w1==0:
+						out_dict[k]=t2.to(torch.bfloat16)
+						save_file(out_dict,os.getcwd()+"/safe_temp/"+k+".safetensors")
+						del w,out_dict,t1,t2,w1,w1
+						del_safe(k)
+						continue
+					elif w2==0:
+						out_dict[k]=t1.to(torch.bfloat16)
+						save_file(out_dict,os.getcwd()+"/safe_temp/"+k+".safetensors")
+						del w,out_dict,t1,t2,w1,w1
+						del_safe(k)
+						continue
+					if mode=="tensor1":
+						if t1.dim()==1:
+							t1[w1:w2]=t2[w1:w2]
+						elif t1.dim()==2:
+							t1[w1:w2,:]=t2[w1:w2,:]
+						elif t1.dim()==3:
+							t1[w1:w2,:,:]=t2[w1:w2,:,:]
+						elif t1.dim()==4:
+							t1[w1:w2,:,:,:]=t2[w1:w2,:,:,:]
+						elif t1.dim()==5:
+							t1[w1:w2,:,:,:,:]=t2[w1:w2,:,:,:,:]
+					else:
+						if t1.dim()==1:
+							t1[w1:w2]=t2[w1:w2]
+						elif t1.dim()==2:
+							t1[:,w1:w2]=t2[:,w1:w2]
+						elif t1.dim()==3:
+							t1[:,w1:w2,:]=t2[:,w1:w2,:]
+						elif t1.dim()==4:
+							t1[:,w1:w2,:,:]=t2[:,w1:w2,:,:]
+						elif t1.dim()==5:
+							t1[:,w1:w2,:,:,:]=t2[:,w1:w2,:,:,:]
+					out_dict[k]=t1.to(torch.bfloat16)
+					del w1,w2
+
+				save_file(out_dict,os.getcwd()+"/safe_temp/"+k+".safetensors")
+				data_dict.append(k)
+				del w,out_dict,t1,t2
+
+			for k in tsd_keys:
+				key_count=key_count+1
+				if win!=None:
+					win["info"].update("merging "+str(key_count)+"/"+str(dict_sum))
+				else:
+					print("\rmerging "+str(key_count)+"/"+str(dict_sum),end="")
+
+				out_dict={}
+				t1=tsd1.pop(k).to(torch.float32)
+				t2=tsd2.pop(k).to(torch.float32)
+
+				k="cond_stage_model.qwen3_06b.transformer.model."+k
+				w=ws[0]
+
+				if mode=="normal":
+					out_dict[k]=((1-w)*t1+w*t2).to(torch.bfloat16)
+
+				elif "tensor" in mode:
+					w1=(1-w)/2
+					w2=w
+					w1=round(t1.size()[0]*w1)
+					w2=round(t1.size()[0]*(w1+w2))
+					if w1==0:
+						out_dict[k]=t2.to(torch.bfloat16)
+						save_file(out_dict,os.getcwd()+"/safe_temp/"+k+".safetensors")
+						del w,out_dict,t1,t2,w1,w1
+						del_safe(k)
+						continue
+					elif w2==0:
+						out_dict[k]=t1.to(torch.bfloat16)
+						save_file(out_dict,os.getcwd()+"/safe_temp/"+k+".safetensors")
+						del w,out_dict,t1,t2,w1,w1
+						del_safe(k)
+						continue
+					if mode=="tensor1":
+						if t1.dim()==1:
+							t1[w1:w2]=t2[w1:w2]
+						elif t1.dim()==2:
+							t1[w1:w2,:]=t2[w1:w2,:]
+						elif t1.dim()==3:
+							t1[w1:w2,:,:]=t2[w1:w2,:,:]
+						elif t1.dim()==4:
+							t1[w1:w2,:,:,:]=t2[w1:w2,:,:,:]
+						elif t1.dim()==5:
+							t1[w1:w2,:,:,:,:]=t2[w1:w2,:,:,:,:]
+					else:
+						if t1.dim()==1:
+							t1[w1:w2]=t2[w1:w2]
+						elif t1.dim()==2:
+							t1[:,w1:w2]=t2[:,w1:w2]
+						elif t1.dim()==3:
+							t1[:,w1:w2,:]=t2[:,w1:w2,:]
+						elif t1.dim()==4:
+							t1[:,w1:w2,:,:]=t2[:,w1:w2,:,:]
+						elif t1.dim()==5:
+							t1[:,w1:w2,:,:,:]=t2[:,w1:w2,:,:,:]
+					out_dict[k]=t1.to(torch.bfloat16)
+					del w1,w2
+
+				save_file(out_dict,os.getcwd()+"/safe_temp/"+k+".safetensors")
+				data_dict.append(k)
+				del w,out_dict,t1,t2
+
 		if win==None:
 			print("")
-	
+
 		if win==None:
 			print("making output")
 		else:
@@ -276,15 +400,14 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 			n=n+offsets
 			out_dict[k]["data_offsets"][1]=n
 			f.close()
-	
+
 		output=open(out_path,"wb")
 		out_dict=str(out_dict).replace("'",'"')
 		out_dict=out_dict.encode()
 		l=len(out_dict).to_bytes(8,byteorder="little")
 		output.write(l)
 		output.write(out_dict)
-	
-		dict_sum=len(data_dict)
+
 		key_count=0
 		for k in data_dict:
 			key_count=key_count+1
@@ -314,7 +437,6 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 		else:
 			win["RUN"].Update(disabled=False)
 			win["info"].update("fin")
-
 	except:
 		if os.path.exists(os.getcwd()+"/safe_temp"):
 			shutil.rmtree(os.getcwd()+"/safe_temp")
