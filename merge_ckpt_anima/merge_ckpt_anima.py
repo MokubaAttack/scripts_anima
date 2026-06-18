@@ -1,7 +1,6 @@
 import os
 import shutil
 import json
-import numpy
 import gc
 from safetensors.torch import (
 	save_file,
@@ -88,13 +87,6 @@ vae_key3={
 	"head.0":"norm_out",
 	"head.2":"conv_out",
 }
-
-check="final_layer.linear.weight"
-pass_keys=[
-	"model.diffusion_model.pos_embedder.dim_spatial_range",
-	"model.diffusion_model.pos_embedder.dim_temporal_range",
-	"model.diffusion_model.pos_embedder.seq"
-]
 
 def spckpt(path,i,ff):
 	pipe=AnimaPipeline.from_single_file(path,cache_dir=os.getcwd()+"/pipecache")
@@ -215,7 +207,7 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 					w=ws[0]
 	
 				if mode=="normal":
-					out_dict[k]=((1-w)*t1+w*t2).to(torch.float16)
+					out_dict[k]=((1-w)*t1+w*t2).to(torch.bfloat16)
 	
 				elif "tensor" in mode:
 					w1=(1-w)/2
@@ -223,13 +215,13 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 					w1=round(t1.size()[0]*w1)
 					w2=round(t1.size()[0]*(w1+w2))
 					if w1==0:
-						out_dict[k]=t2.to(torch.float16)
+						out_dict[k]=t2.to(torch.bfloat16)
 						save_file(out_dict,os.getcwd()+"/safe_temp/"+k+".safetensors")
 						del w,out_dict,t1,t2,w1,w1
 						del_safe(k)
 						continue
 					elif w2==0:
-						out_dict[k]=t1.to(torch.float16)
+						out_dict[k]=t1.to(torch.bfloat16)
 						save_file(out_dict,os.getcwd()+"/safe_temp/"+k+".safetensors")
 						del w,out_dict,t1,t2,w1,w1
 						del_safe(k)
