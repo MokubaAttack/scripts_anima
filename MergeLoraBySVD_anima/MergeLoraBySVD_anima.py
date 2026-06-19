@@ -4,7 +4,6 @@ from safetensors.torch import (
 )
 import torch
 import os
-import shutil
 
 placeholders = {
 	"adaln_modulation_self_attn":"moku01",
@@ -35,157 +34,51 @@ placeholders2 = {
 CLAMP_QUANTILE=0.99
 
 def convkey(raw_path):
-	path = raw_path
-
-	if path.startswith("diffusion_model.") or path.startswith("text_encoders.qwen3_06b.transformer.model."):
-		return path
-	elif path.startswith("lora_te_"):
-		path = path.removeprefix("lora_te_")
-		for key, token in placeholders2.items():
-			path =path.replace(key, token)
-		path = path.replace("_", ".")
-		for key, token in placeholders2.items():
-			path = path.replace(token, key)
-		return "text_encoders.qwen3_06b.transformer.model."+path
-	elif path.startswith("lora_unet_"):
-		path = path.removeprefix("lora_unet_")
-		for key, token in placeholders.items():
-			path =path.replace(key, token)
-		path = path.replace("_", ".")
-		for key, token in placeholders.items():
-			path = path.replace(token, key)
-		return "diffusion_model."+path
-
-	return None
-
-def add_part(path,merge_dtype,device,ratio):
-	sd=load_file(path)
-	all_keys=list(sd.keys())
-	keys=[]
-	for k in all_keys:
-		if not((".lora_A.weight" in k) or (".lora_down.weight" in k)):
+	sd=load_file(raw_path)
+	sd_keys=list(sd)
+	c=0
+	for path in sd_keys:
+		if not((".lora_A.weight" in path) or (".lora_down.weight" in path)):
 			continue
-
-		if ".lora_A.weight" in k:
-			s=".lora_A.weight"
-			k=k.removesuffix(".lora_A.weight")
+		c=c+1
+		if ".lora_A.weight" in path:
+			path=path.removesuffix(".lora_A.weight")
 		else:
-			s=".lora_down.weight"
-			k=k.removesuffix(".lora_down.weight")
+			path=path.removesuffix(".lora_down.weight")
 
-		name=convkey(k)
-		if name==None:
+		if path.startswith("diffusion_model.") or path.startswith("text_encoders.qwen3_06b.transformer.model."):
+			mpath=path
+		elif path.startswith("lora_te_"):
+			mpath = path.removeprefix("lora_te_")
+			for key, token in placeholders2.items():
+				mpath =mpath.replace(key, token)
+			mpath = mpath.replace("_", ".")
+			for key, token in placeholders2.items():
+				mpath = mpath.replace(token, key)
+			mpath= "text_encoders.qwen3_06b.transformer.model."+mpath
+		elif path.startswith("lora_unet_"):
+			mpath = path.removeprefix("lora_unet_")
+			for key, token in placeholders.items():
+				mpath =mpath.replace(key, token)
+			mpath = mpath.replace("_", ".")
+			for key, token in placeholders.items():
+				mpath = mpath.replace(token, key)
+			mpath= "diffusion_model."+path
+		else:
 			return None
 
-		if os.path.exists(os.getcwd()+"/safe_temp/"+name+".safetensors"):
-			merged_sd=load_file(os.getcwd()+"/safe_temp/"+name+".safetensors")
-		else:
-			merged_sd={}
+		for k in [".lora_A.weight",".lora_B.weight",".lora_down.weight",".lora_up.weight",".alpha"]:
+			if path+k in sd:
+				w=sd.pop(path+k)
+				if k==".lora_down.weight":
+					k=".lora_A.weight"
+				elif k==".lora_up.weight":
+					k=".lora_B.weight"
+				sd[mpath+k]=w
 
-		if s==".lora_A.weight":
-			wa=sd[k+".lora_A.weight"]
-			wb=sd[k+".lora_B.weight"]
-		else:
-			wa=sd[k+".lora_down.weight"]
-			wb=sd[k+".lora_up.weight"]
-
-		network_dim = wa.size()[0]
-		alpha=sd.get(k+".alpha",network_dim )
-		in_dim = wa.size()[1]
-		out_dim = wb.size()[0]
-		conv2d = len(wa.size()) == 4
-		kernel_size = None if not conv2d else wa.size()[2:4]
-
-		if name not in merged_sd:
-			weight = torch.zeros((out_dim, in_dim, *kernel_size) if conv2d else (out_dim, in_dim), dtype=merge_dtype)
-		else:
-			weight = merged_sd[name]
-		if device:
-			weight = weight.to(device)
-
-		if device:
-			wb = wb.to(device)
-			wa = wa.to(device)
-
-		scale = alpha / network_dim
-
-		if device:
-			scale = scale.to(device)
-
-		if not conv2d:
-			weight = weight + ratio * (wb @ wa) * scale
-		elif kernel_size == (1, 1):
-			weight = (
-				weight
-				+ ratio
-				* (wb.squeeze(3).squeeze(2) @ wa.squeeze(3).squeeze(2)).unsqueeze(2).unsqueeze(3)
-				* scale
-			)
-		else:
-			conved = torch.nn.functional.conv2d(wa.permute(1, 0, 2, 3), wb).permute(1, 0, 2, 3)
-			weight = weight + ratio * conved * scale
-
-		merged_sd[name] = weight
-		save_file(merged_sd,os.getcwd()+"/safe_temp/"+name+".safetensors")
-		keys.append(name)
-	return keys
-
-def split_part(sd,new_rank,new_conv_rank,device,win):
-	merged_lora_sd = {}
-	with torch.no_grad():
-		key_sum=len(sd)
-		key_count=0
-		if win==None:
-			print("svd")
-		for lora_module_name in sd:
-			key_count=key_count+1
-			if win!=None:
-				win["info"].update("svd : "+str(key_count)+"/"+str(key_sum))
-			else:
-				print("\r"+str(key_count)+"/"+str(key_sum),end="")
-			mat=load_file(os.getcwd()+"/safe_temp/"+lora_module_name+".safetensors")[lora_module_name]
-			if device:
-				mat = mat.to(device)
-
-			conv2d = len(mat.size()) == 4
-			kernel_size = None if not conv2d else mat.size()[2:4]
-			conv2d_3x3 = conv2d and kernel_size != (1, 1)
-			out_dim, in_dim = mat.size()[0:2]
-
-			if conv2d:
-				if conv2d_3x3:
-					mat = mat.flatten(start_dim=1)
-				else:
-					mat = mat.squeeze()
-
-			module_new_rank = new_conv_rank if conv2d_3x3 else new_rank
-			module_new_rank = min(module_new_rank, in_dim, out_dim)
-
-			U, S, Vh = torch.linalg.svd(mat)
-
-			U = U[:, :module_new_rank]
-			S = S[:module_new_rank]
-			U = U @ torch.diag(S)
-
-			Vh = Vh[:module_new_rank, :]
-
-			dist = torch.cat([U.flatten(), Vh.flatten()])
-			hi_val = torch.quantile(dist, CLAMP_QUANTILE)
-			low_val = -hi_val
-
-			U = U.clamp(low_val, hi_val)
-			Vh = Vh.clamp(low_val, hi_val)
-
-			if conv2d:
-				U = U.reshape(out_dim, module_new_rank, 1, 1)
-				Vh = Vh.reshape(module_new_rank, in_dim, kernel_size[0], kernel_size[1])
-
-			up_weight = U
-			down_weight = Vh
-
-			merged_lora_sd[lora_module_name + ".lora_B.weight"] = up_weight.to("cpu").contiguous()
-			merged_lora_sd[lora_module_name + ".lora_A.weight"] = down_weight.to("cpu").contiguous()
-	return merged_lora_sd
+	if c==0:
+		return None
+	return sd
 
 def str_to_dtype(p):
 	if p == "float":
@@ -226,47 +119,122 @@ def main_part(
 			save_dtype = merge_dtype
 
 		new_conv_rank = new_conv_rank if new_conv_rank is not None else new_rank
-		if os.path.exists(os.getcwd()+"/safe_temp"):
-			shutil.rmtree(os.getcwd()+"/safe_temp")
-		os.mkdir(os.getcwd()+"/safe_temp")
+		sds=[]
 		keys=[]
-		for i in range(len(loras)):
-			if win==None:
-				print(os.path.basename(loras[i])+" is loading.")
-			else:
-				win["info"].update(os.path.basename(loras[i])+" is loading.")
-			keys1=add_part(loras[i],merge_dtype,device,weights[i])
-			if keys1==None:
-				shutil.rmtree(os.getcwd()+"/safe_temp")
+		for lora in loras:
+			sd=convkey(lora)
+			if sd==None:
 				if win==None:
-					print("error")
+					print(os.path.basename(lora)+" isn't supported.")
 				else:
-					win["info"].update("error")
+					win["info"].update(os.path.basename(lora)+" isn't supported.")
 					win['RUN'].Update(disabled=False)
 				return
-			elif len(keys1)==0:
-				shutil.rmtree(os.getcwd()+"/safe_temp")
-				if win==None:
-					print(os.path.basename(loras[i])+" isn't supported.")
-				else:
-					win["info"].update(os.path.basename(loras[i])+" isn't supported.")
-					win['RUN'].Update(disabled=False)
-				return
-			keys=keys+keys1
+			sds.append(sd)
+			keys=keys+list(sd)
 
 		keys=list(set(keys))
-		out_sd=split_part(keys,new_rank,new_conv_rank,device,win)
+		key_sum=len(keys)
+		key_count=0
+		merged_lora_sd={}
 
-		for key in list(out_sd.keys()):
-			value = out_sd[key]
+		if win==None:
+			print("svd")
+
+		for k in keys:
+			key_count=key_count+1
+			if win!=None:
+				win["info"].update("svd : "+str(key_count)+"/"+str(key_sum))
+			else:
+				print("\r"+str(key_count)+"/"+str(key_sum),end="")
+			if not(k.endswith(".lora_A.weight")):
+				continue
+
+			mat=0
+			for i in range(len(sds)):
+				if not(k in sds[i]):
+					continue
+				wa=sds[i][k]
+				wb=sds[i][k.replace(".lora_A.weight",".lora_B.weight")]
+
+				network_dim = wa.size()[0]
+				alpha=sds[i].get(k.replace(".lora_A.weight",".alpha"),network_dim )
+				in_dim = wa.size()[1]
+				out_dim = wb.size()[0]
+				conv2d = len(wa.size()) == 4
+				kernel_size = None if not conv2d else wa.size()[2:4]
+				scale = alpha / network_dim
+
+				if type(mat) is int:
+					mat = torch.zeros((out_dim, in_dim, *kernel_size) if conv2d else (out_dim, in_dim), dtype=merge_dtype)
+
+				if device:
+					mat = mat.to(device)
+					wb = wb.to(device)
+					wa = wa.to(device)
+					scale = scale.to(device)
+					
+				if not conv2d:
+					mat = mat + weights[i] * (wb @ wa) * scale
+				elif kernel_size == (1, 1):
+					mat = (
+						mat
+						+ weights[i]
+						* (wb.squeeze(3).squeeze(2) @ wa.squeeze(3).squeeze(2)).unsqueeze(2).unsqueeze(3)
+						* scale
+					)
+				else:
+					conved = torch.nn.functional.conv2d(wa.permute(1, 0, 2, 3), wb).permute(1, 0, 2, 3)
+					mat = mat + weights[i] * conved * scale
+
+			conv2d = len(mat.size()) == 4
+			kernel_size = None if not conv2d else mat.size()[2:4]
+			conv2d_3x3 = conv2d and kernel_size != (1, 1)
+			out_dim, in_dim = mat.size()[0:2]
+
+			if conv2d:
+				if conv2d_3x3:
+					mat = mat.flatten(start_dim=1)
+				else:
+					mat = mat.squeeze()
+
+			module_new_rank = new_conv_rank if conv2d_3x3 else new_rank
+			module_new_rank = min(module_new_rank, in_dim, out_dim)
+
+			U, S, Vh = torch.linalg.svd(mat)
+
+			U = U[:, :module_new_rank]
+			S = S[:module_new_rank]
+			U = U @ torch.diag(S)
+
+			Vh = Vh[:module_new_rank, :]
+
+			dist = torch.cat([U.flatten(), Vh.flatten()])
+			hi_val = torch.quantile(dist, CLAMP_QUANTILE)
+			low_val = -hi_val
+
+			U = U.clamp(low_val, hi_val)
+			Vh = Vh.clamp(low_val, hi_val)
+
+			if conv2d:
+				U = U.reshape(out_dim, module_new_rank, 1, 1)
+				Vh = Vh.reshape(module_new_rank, in_dim, kernel_size[0], kernel_size[1])
+
+			up_weight = U
+			down_weight = Vh
+
+			merged_lora_sd[k.replace(".lora_A.weight",".lora_B.weight")] = up_weight.to("cpu").contiguous()
+			merged_lora_sd[k] = down_weight.to("cpu").contiguous()
+
+		for key in list(merged_lora_sd):
+			value = merged_lora_sd[key]
 			if type(value) == torch.Tensor and value.dtype.is_floating_point and value.dtype != save_dtype:
-				out_sd[key] = value.to(save_dtype)
+				merged_lora_sd[key] = value.to(save_dtype)
 
 		if isinstance(meta_dict, dict):
-			save_file(out_sd,save_to,metadata=meta_dict)
+			save_file(merged_lora_sd,save_to,metadata=meta_dict)
 		else:
-			save_file(out_sd,save_to)
-		shutil.rmtree(os.getcwd()+"/safe_temp")
+			save_file(merged_lora_sd,save_to)
 		if dof:
 			for lora in loras:
 				os.remove(lora)
@@ -276,9 +244,7 @@ def main_part(
 		else:
 			win["info"].update("fin")
 			win['RUN'].Update(disabled=False)
-
 	except:
-		shutil.rmtree(os.getcwd()+"/safe_temp")
 		if win==None:
 			print("error")
 		else:
