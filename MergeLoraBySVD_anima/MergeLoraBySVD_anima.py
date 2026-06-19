@@ -66,7 +66,7 @@ def convkey(raw_path):
 			mpath = mpath.replace("_", ".")
 			for key, token in placeholders.items():
 				mpath = mpath.replace(token, key)
-			mpath= "diffusion_model."+path
+			mpath= "diffusion_model."+mpath
 		else:
 			return None
 
