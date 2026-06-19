@@ -30,6 +30,7 @@ placeholders2 = {
 	"up_proj":"moku05",
 	"post_attention_layernorm":"moku06",
 }
+endkeys=(".lora_A.weight",".lora_B.weight",".lora_down.weight",".lora_up.weight",".alpha")
 
 CLAMP_QUANTILE=0.99
 
@@ -38,7 +39,9 @@ def convkey(raw_path):
 	sd_keys=list(sd)
 	c=0
 	for path in sd_keys:
-		if not((".lora_A.weight" in path) or (".lora_down.weight" in path)):
+		if not(path.endswith((".lora_A.weight",".lora_down.weight"))):
+			if not(path.endswith(endkeys)):
+				sd.pop(path)
 			continue
 		c=c+1
 		if ".lora_A.weight" in path:
@@ -67,7 +70,7 @@ def convkey(raw_path):
 		else:
 			return None
 
-		for k in [".lora_A.weight",".lora_B.weight",".lora_down.weight",".lora_up.weight",".alpha"]:
+		for k in endkeys:
 			if path+k in sd:
 				w=sd.pop(path+k)
 				if k==".lora_down.weight":
@@ -154,11 +157,14 @@ def main_part(
 			for i in range(len(sds)):
 				if not(k in sds[i]):
 					continue
-				wa=sds[i][k]
-				wb=sds[i][k.replace(".lora_A.weight",".lora_B.weight")]
+				wa=sds[i].pop(k)
+				wb=sds[i].pop(k.replace(".lora_A.weight",".lora_B.weight"))
 
 				network_dim = wa.size()[0]
-				alpha=sds[i].get(k.replace(".lora_A.weight",".alpha"),network_dim )
+				if k.replace(".lora_A.weight",".alpha") in sds[i]:
+					alpha=sds[i].pop(k.replace(".lora_A.weight",".alpha"))
+				else:
+					alpha=network_dim
 				in_dim = wa.size()[1]
 				out_dim = wb.size()[0]
 				conv2d = len(wa.size()) == 4
