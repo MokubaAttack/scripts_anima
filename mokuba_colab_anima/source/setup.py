@@ -22,5 +22,6 @@ setup(
 		"torchao>=0.16.0",
 		"lycoris-lora",
 		"piexif",
+		"transformers==5.5.4",
 	],
 )
