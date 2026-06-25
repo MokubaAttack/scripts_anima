@@ -31,14 +31,14 @@ def mokucola(
 	neg_emb=[],
 	base_safe="base.safetensors",
 	vae_safe="",
-	pag=3.0,
 	url="",
 	p=None,
 	dtype="f16",
 	dev="cuda",
 	ser="colab",
 	del_pipe=True,
-	si=True
+	si=True,
+	lowmem=False
 	):
 	memo="seed\n"
 	if isinstance(seed, list):
@@ -114,7 +114,8 @@ def mokucola(
 		pipe=mokupipe()
 		pipe.set_diffparams(
 			dtype=dtype,
-			dev=dev
+			dev=dev,
+			lowmem=lowmem
 		)
 		check=pipe.mkpipe(
 			pos_emb=pos_emb,
@@ -148,7 +149,6 @@ def mokucola(
 			step=f_step,
 			cs=cs,
 			seed=seed,
-			pag=pag,
 			x=yoko[1],
 			y=tate[1],
 			out=True
@@ -161,7 +161,6 @@ def mokucola(
 			step=f_step,
 			cs=cs,
 			seed=seed,
-			pag=pag,
 			x=yoko[0],
 			y=tate[0],
 			out=False
@@ -178,7 +177,6 @@ def mokucola(
 			step=step,
 			cs=cs,
 			seed=seed,
-			pag=pag,
 			x=yoko[1],
 			y=tate[1],
 			ss=ss,
@@ -193,7 +191,6 @@ def mokucola(
 			step=(step+f_step)/2,
 			cs=cs,
 			seed=seed,
-			pag=pag,
 			x=round((yoko[0]+yoko[1])/2/8)*8,
 			y=round((tate[0]+tate[1])/2/8)*8,
 			ss=ss,
@@ -202,6 +199,7 @@ def mokucola(
 		)
 	
 	if prog_ver==2:
+		pipe.mkpipe_upscale(Interpolation,dev)
 		images=pipe.image2imageup(
 			prompt=prompt,
 			n_prompt=n_prompt,
@@ -209,7 +207,6 @@ def mokucola(
 			step=step,
 			cs=cs,
 			seed=seed,
-			pag=pag,
 			x=yoko[1],
 			y=tate[1],
 			ss=ss,
@@ -242,7 +239,6 @@ def mokuup(
 	seed=[],
 	pos_emb=[],
 	neg_emb=[],
-	pag=3.0,
 	url="",
 	out_folder="output",
 	p=None,
@@ -255,7 +251,8 @@ def mokuup(
 	dev="cuda",
 	ser="colab",
 	del_pipe=True,
-	si=True
+	si=True,
+	lowmem=False
 	):
 	memo="seed\n"
 	if isinstance(seed, list):
@@ -310,7 +307,8 @@ def mokuup(
 		pipe=mokupipe()
 		pipe.set_diffparams(
 			dtype=dtype,
-			dev=dev
+			dev=dev,
+			lowmem=lowmem
 		)
 		check=pipe.mkpipe(
 			pos_emb=pos_emb,
@@ -344,7 +342,6 @@ def mokuup(
 		step=step,
 		cs=cs,
 		seed=seed,
-		pag=pag,
 		x=output_size[0],
 		y=output_size[1],
 		ss=ss,
@@ -485,7 +482,7 @@ def mokuani(
 		reset_func(f=pipe,s=ser)
 		pipe=None
 	return pipe
-	
+
 def mokusp(
 	loras=[],
 	lora_weights=[],
@@ -510,7 +507,6 @@ def mokusp(
 	neg_emb=[],
 	base_safe="base.safetensors",
 	vae_safe="",
-	pag=3.0,
 	url="",
 	p=None,
 	dtype="f16",
@@ -522,6 +518,7 @@ def mokusp(
 	tile_size=(0,0),
 	ol=0,
 	up=2,
+	lowmem=False
 	):
 	memo="seed\n"
 	if isinstance(seed, list):
@@ -593,7 +590,8 @@ def mokusp(
 		pipe=mokupipe()
 		pipe.set_diffparams(
 			dtype=dtype,
-			dev=dev
+			dev=dev,
+			lowmem=lowmem
 		)
 		check=pipe.mkpipe(
 			pos_emb=pos_emb,
@@ -614,7 +612,7 @@ def mokusp(
 		pipe.deldiffusionparams()
 
 	pipe.set_outparams(
-		out_folder=out_folder+"0",
+		out_folder=out_folder+"/0",
 		url=url,
 		si=si
 		)
@@ -626,7 +624,6 @@ def mokusp(
 		step=step,
 		cs=cs,
 		seed=seed,
-		pag=pag,
 		x=yoko[0],
 		y=tate[0],
 		out=False
@@ -643,7 +640,6 @@ def mokusp(
 		step=step2,
 		cs=cs,
 		seed=seed,
-		pag=pag,
 		x=yoko[1],
 		y=tate[1],
 		ss=ss,
@@ -652,13 +648,15 @@ def mokusp(
 	)
 
 	if url!="":
-		to_discord(out_folder+"0",url)
+		to_discord(out_folder+"/0",url)
 	
 	pipe.set_outparams(
-		out_folder=out_folder+"1",
+		out_folder=out_folder+"/1",
 		url=url,
 		si=si
 		)
+
+	pipe.mkpipe_upscale(Interpolation,dev)
 
 	if step3==None:
 		step3=round(step*2/3)
@@ -669,7 +667,6 @@ def mokusp(
 		step=step3,
 		cs=cs,
 		seed=seed,
-		pag=pag,
 		x=yoko[1]*up,
 		y=tate[1]*up,
 		ss=ss,
@@ -681,7 +678,7 @@ def mokusp(
 		)
 
 	if url!="":
-		to_discord(out_folder+"1",url)
+		to_discord(out_folder+"/1",url)
 	del images,seed
 	if del_pipe:
 		reset_func(f=pipe,s=ser)
