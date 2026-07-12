@@ -1,7 +1,6 @@
 import os
 import shutil
 import json
-import gc
 from safetensors.torch import (
 	save_file,
 	load_file
@@ -203,13 +202,11 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 						out_dict[k]=t2.to(torch.bfloat16)
 						save_file(out_dict,os.getcwd()+"/safe_temp/"+k+".safetensors")
 						del w,out_dict,t1,t2,w1,w1
-						del_safe(k)
 						continue
 					elif w2==0:
 						out_dict[k]=t1.to(torch.bfloat16)
 						save_file(out_dict,os.getcwd()+"/safe_temp/"+k+".safetensors")
 						del w,out_dict,t1,t2,w1,w1
-						del_safe(k)
 						continue
 					if mode=="tensor1":
 						if t1.dim()==1:
@@ -279,13 +276,11 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 						out_dict[k]=t2.to(torch.bfloat16)
 						save_file(out_dict,os.getcwd()+"/safe_temp/"+k+".safetensors")
 						del w,out_dict,t1,t2,w1,w1
-						del_safe(k)
 						continue
 					elif w2==0:
 						out_dict[k]=t1.to(torch.bfloat16)
 						save_file(out_dict,os.getcwd()+"/safe_temp/"+k+".safetensors")
 						del w,out_dict,t1,t2,w1,w1
-						del_safe(k)
 						continue
 					if mode=="tensor1":
 						if t1.dim()==1:
@@ -342,13 +337,11 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 						out_dict[k]=t2.to(torch.bfloat16)
 						save_file(out_dict,os.getcwd()+"/safe_temp/"+k+".safetensors")
 						del w,out_dict,t1,t2,w1,w1
-						del_safe(k)
 						continue
 					elif w2==0:
 						out_dict[k]=t1.to(torch.bfloat16)
 						save_file(out_dict,os.getcwd()+"/safe_temp/"+k+".safetensors")
 						del w,out_dict,t1,t2,w1,w1
-						del_safe(k)
 						continue
 					if mode=="tensor1":
 						if t1.dim()==1:
@@ -430,7 +423,7 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None):
 		f.close()
 		shutil.rmtree(os.getcwd()+"/safe_temp")
 		del out_dict,l,head,n,offsets
-		gc.collect()
+
 		if win==None:
 			print("")
 			print(out_path)
