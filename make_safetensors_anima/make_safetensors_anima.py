@@ -1,10 +1,11 @@
+import os
+os.environ["HF_HOME"]=os.getcwd()+"/pipecache"
 import torch
 from diffusers_anima import AnimaPipeline
 from safetensors.torch import (
 	save_file,
 	load_file
 )
-import os
 import math
 import shutil
 import json
@@ -13,10 +14,32 @@ from diffusers_anima.pipelines.anima.loading import (
 	_vae_text_check
 )
 from diffusers_anima.models.transformers.modeling_anima_transformer import _convert_anima_state_dict_to_diffusers
+import re
+from lycoris import create_lycoris_from_weights
+from lycoris.modules.locon import LoConModule
+from lycoris.modules.loha import LohaModule
+from lycoris.modules.lokr import LokrModule
+from lycoris.modules.full import FullModule
+from lycoris.modules.norms import NormModule
+from lycoris.modules.diag_oft import DiagOFTModule
+from lycoris.modules.boft import ButterflyOFTModule
+from lycoris.modules.glora import GLoRAModule
+from lycoris.modules.dylora import DyLoraModule
+from lycoris.modules.ia3 import IA3Module
 
-if not(os.path.exists(os.getcwd()+"/pipecache")):
-	os.mkdir(os.getcwd()+"/pipecache")
-	
+MODULE_LIST = [
+	LoConModule,
+	LohaModule,
+	IA3Module,
+	LokrModule,
+	FullModule,
+	NormModule,
+	DiagOFTModule,
+	ButterflyOFTModule,
+	GLoRAModule,
+	DyLoraModule,
+]
+
 def save_ckpt(keys,path):
 	out_dict={}
 	out_dict["__metadata__"]={"format":"pt"}
@@ -206,7 +229,7 @@ def mksafe(base_path,loras,ws,out_path,full_file,win=None):
 	else:
 		print("make pipe")
 	os.mkdir(os.getcwd()+"/safe_temp")
-	pipe = AnimaPipeline.from_single_file(base_path,cache_dir=os.getcwd()+"/pipecache",torch_dtype=torch.float32)
+	pipe = AnimaPipeline.from_single_file(base_path,torch_dtype=torch.float32)
 
 	if win!=None:
 		win["info"].update("merge lora")
@@ -215,19 +238,119 @@ def mksafe(base_path,loras,ws,out_path,full_file,win=None):
 	try:
 		for i in range(len(loras)):
 			sd=load_file(loras[i])
-			lora_check=False
-			for k in sd:
-				if k.endswith(".lora_up.weight") or k.endswith(".lora_B.weight"):
-					lora_check=True
+			MODULE_type=None
+			for m in MODULE_LIST:
+				for k in m.weight_list_det:
+					for k2 in sd:
+						if k2.endswith(k):
+							MODULE_type=m
+							break
+						elif k2.endswith("lora_B.weight"):
+							MODULE_type="B"
+							break
+					if MODULE_type!=None:
+						break
+				if MODULE_type!=None:
 					break
-			if lora_check:
-				pipe.load_lora_weights(loras[i], adapter_name="style"+str(i))
-				pipe.set_adapters("style"+str(i), adapter_weights=[ws[i]])
-				pipe.fuse_lora()
-				pipe.unload_lora_weights()
-			else:
-				wrapper,_=pipe.create_lycoris_from_weights(multiplier=lora_weights[i],weights_sd=sd)
+			if MODULE_type==None:
+				if win!=None:
+					win["RUN"].Update(disabled=False)
+					win["info"].update(loras[i]+" isn't supported.")
+				else:
+					print(loras[i]+" isn't supported.")
+				return
+			if MODULE_type=="B":
+				MODULE_type=LoConModule
+				key_dict=list(sd)
+				for k2 in key_dict:
+					if k2.endswith("lora_B.weight"):
+						k=k2.replace("lora_B.weight","lora_up.weight")
+						sd[k]=sd.pop(k2)
+						kk=k2.replace("lora_B.weight","alpha")
+						if not(kk in sd):
+							sd[kk]=torch.tensor(sd[k].size()[1])
+					elif k2.endswith("lora_A.weight"):
+						k=k2.replace("lora_A.weight","lora_down.weight")
+						sd[k]=sd.pop(k2)
+			key_dict={}
+			for k in sd:
+				for k2 in MODULE_type.weight_list_det:
+					if k.endswith("."+k2):
+						k=k.removesuffix("."+k2)
+						key_dict[k]=k.replace(".","_")
+
+			transformer_sd={}
+			text_encoder_sd={}
+			
+			for k in key_dict:
+				if key_dict[k].startswith("lora_te_"):
+					key_dict[k]=key_dict[k].removeprefix("lora_te_")
+					for k2 in MODULE_type.weight_list:
+						if k+"."+k2 in sd:
+							text_encoder_sd["lycoris_"+key_dict[k]+"."+k2]=sd.pop(k+"."+k2)
+					continue
+				elif key_dict[k].startswith("text_encoders_qwen3_06b_transformer_model_"):
+					key_dict[k]=key_dict[k].removeprefix("text_encoders_qwen3_06b_transformer_model_")
+					for k2 in MODULE_type.weight_list:
+						if k+"."+k2 in sd:
+							text_encoder_sd["lycoris_"+key_dict[k]+"."+k2]=sd.pop(k+"."+k2)
+					continue
+
+				m=re.search(r"llm_adapter_",key_dict[k])
+				if m!=None:
+					key_dict[k]=key_dict[k][m.end():]
+					for k2 in MODULE_type.weight_list:
+						if k+"."+k2 in sd:
+							transformer_sd["lycoris_"+key_dict[k]+"."+k2]=sd.pop(k+"."+k2)
+						continue
+
+				m=re.search(r"blocks_[0-9]+_",key_dict[k])
+				if m!=None:
+					key_dict[k]=key_dict[k][m.start():]
+					for k2 in trans_key1:
+						mk2=k2.removesuffix(".weight").replace(".","_")
+						mk2_value=trans_key1[k2].removesuffix(".weight").replace(".","_")
+						key_dict[k]=key_dict[k].replace(mk2_value,mk2)
+					for k2 in MODULE_type.weight_list:
+						if k+"."+k2 in sd:
+							transformer_sd["lycoris_core_transformer_"+key_dict[k]+"."+k2]=sd.pop(k+"."+k2)
+					continue
+
+				for k3 in trans_key2:
+					mk2=k3.removesuffix(".weight").replace(".","_")
+					mk2_value=trans_key2[k3].removesuffix(".weight").replace(".","_")
+					m=re.search(mk2,key_dict[k])
+					if m!=None:
+						key_dict[k]=mk2
+						for k2 in MODULE_type.weight_list:
+							if k+"."+k2 in sd:
+								transformer_sd["lycoris_core_"+key_dict[k]+"."+k2]=sd.pop(k+"."+k2)
+						break
+					m=re.search(mk2_value,key_dict[k])
+					if m!=None:
+						key_dict[k]=mk2
+						for k2 in MODULE_type.weight_list:
+							if k+"."+k2 in sd:
+								transformer_sd["lycoris_core_"+key_dict[k]+"."+k2]=sd.pop(k+"."+k2)
+						break
+
+			if transformer_sd=={} and text_encoder_sd=={}:
+				if win!=None:
+					win["RUN"].Update(disabled=False)
+					win["info"].update(loras[i]+" isn't supported.")
+				else:
+					print(loras[i]+" isn't supported.")
+				return
+			if transformer_sd!={}:
+				wrapper, _ = create_lycoris_from_weights(multiplier=ws[i],file="dummy.safetensors",module=pipe.transformer, weights_sd=transformer_sd)
 				wrapper.merge_to()
+				del wrapper
+			del transformer_sd
+			if text_encoder_sd!={}:
+				wrapper, _ = create_lycoris_from_weights(multiplier=ws[i],file="dummy.safetensors",module=pipe.text_encoder, weights_sd=text_encoder_sd)
+				wrapper.merge_to()
+				del wrapper
+			del text_encoder_sd
 	except:
 		if win!=None:
 			win["RUN"].Update(disabled=False)
