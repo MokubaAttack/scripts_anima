@@ -241,6 +241,8 @@ def safe2diff(safe_path,id=None):
 				mk=k.removeprefix("cond_stage_model.qwen3_06b.transformer.model.")
 				text_encoder_sd[mk]=sd[k]
 				continue
+			else:
+				continue
 
 			if mk.startswith("llm_adapter"):
 				mk=mk.removeprefix("llm_adapter.")
