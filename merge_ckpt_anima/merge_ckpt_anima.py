@@ -1,4 +1,5 @@
 import os
+os.environ["HF_HOME"]=os.getcwd()+"/pipecache"
 import shutil
 import json
 from safetensors.torch import (
@@ -100,7 +101,7 @@ def modckpt(path,ff):
 	if ff:
 		vsd,tsd=_vae_text_check(path)
 		if vsd=={} or tsd=={}:
-			pipe=AnimaPipeline.from_pretrained("hdae/diffusers-anima-preview",cache_dir=os.getcwd()+"/pipecache",transformer=None)
+			pipe=AnimaPipeline.from_pretrained("hdae/diffusers-anima-preview",transformer=None)
 			if vsd=={}:
 				for k,p in getattr(pipe, "vae").named_parameters():
 					vsd[k]=p.data
