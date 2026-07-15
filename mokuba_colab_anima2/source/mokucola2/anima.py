@@ -107,6 +107,7 @@ class mokuanipipe:
 			else:
 				self.meta_dict["ckpt"]=""
 			self.meta_dict["ckpt_name"]=base_safe
+		flush()
 
 		if dtype=="bf16":
 			dtype=torch.bfloat16
