@@ -1,9 +1,10 @@
+import os
+os.environ["HF_HOME"]=os.getcwd()+"/pipecache"
 from diffusers_anima import AnimaPipeline
 from safetensors.torch import (
 	load_file,
 	save_file
 )
-import os
 import shutil
 import torch
 
@@ -38,7 +39,7 @@ _ANIMA_ROOT_MODULE_MAP = {
 }
 
 def split_pipe(path,i,trans_out,text_out):
-	pipe=AnimaPipeline.from_single_file(path,cache_dir=os.getcwd()+"/pipecache")
+	pipe=AnimaPipeline.from_single_file(path)
 	keys=[]
 	if trans_out:
 		for name, module in pipe.transformer.named_modules():
