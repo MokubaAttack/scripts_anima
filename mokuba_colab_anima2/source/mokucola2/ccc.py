@@ -168,6 +168,23 @@ def safe2diff(safe_path,id=None):
 	if not(os.path.exists(os.getcwd()+"/AnimaBaseV1")):
 		snapshot_download(repo_id="circlestone-labs/Anima-Base-v1.0-Diffusers", local_dir=os.getcwd()+"/AnimaBaseV1")
 
+		json_path=os.getcwd()+"/AnimaBaseV1/modular_model_index.json"
+		f=open(json_path,"r")
+		json_sd=json.load(f)
+		f.close()
+
+		json_sd["scheduler"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["tokenizer"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["t5_tokenizer"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["text_conditioner"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["text_encoder"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["transformer"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["vae"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+
+		f=open(json_path,"w")
+		json.dump(json_sd, f, indent=2)
+		f.close()
+
 	os.makedirs(base_path+"/text_conditioner")
 	os.makedirs(base_path+"/text_encoder")
 	os.makedirs(base_path+"/vae")
