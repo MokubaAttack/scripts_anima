@@ -14,6 +14,5 @@ It is a script that the ckpt that doesn't be loaded in diffusers_anima makes to 
 ## [mokuba_calob_anima](https://github.com/MokubaAttack/scripts_anima/tree/main/mokuba_colab_anima)
 I introduced hdae/diffusers-anima module to mokucola. But you need an abundance of time to make images in Google Colab (you need ~6 minutes to make a 1024-1024 image.), because T4 GPU doesn't support bfloat16.
 ## Credits
-- [hdae/diffusers-anima](https://github.com/hdae/diffusers-anima)  
 - [kohya-ss/sd-scripts](https://github.com/kohya-ss/sd-scripts)  
 - [KohakuBlueleaf/LyCORIS](https://github.com/KohakuBlueleaf/LyCORIS)
