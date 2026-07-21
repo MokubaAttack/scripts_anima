@@ -2,7 +2,8 @@ try:
 	from .workflow import (
 		mokucola,
 		mokuup,
-		mokuani
+		mokuani,
+		mokusp
 	)
 	from .dl import (
 		dlc,
@@ -14,7 +15,8 @@ try:
 	f.write("from .workflow import (\n")
 	f.write("	mokucola,\n")
 	f.write("	mokuup,\n")
-	f.write("	mokuani\n")
+	f.write("	mokuani,\n")
+	f.write("	mokusp\n")
 	f.write(")\n")
 	f.write("from .dl import (\n")
 	f.write("	dlc,\n")
@@ -24,8 +26,8 @@ try:
 
 except:
 	path=__file__.replace("\\","/")
-	path=path.replace("mokucola2/__init__.py","basicsr/data/degradations.py")
-	f=open(path,"r")
+	path2=path.replace("mokucola2/__init__.py","basicsr/data/degradations.py")
+	f=open(path2,"r")
 	data=[]
 	for line in f:
 		if "from torchvision.transforms.functional_tensor import rgb_to_grayscale" in line:
@@ -35,15 +37,33 @@ except:
 				)
 		data+=[line]
 	f.close()
-	f=open(path,"w")
+	f=open(path2,"w")
 	for line in data:
 		f.write(line)
 	f.close()
 
+	import requests
+	url2="https://raw.githubusercontent.com/huggingface/diffusers/refs/heads/main/src/diffusers/modular_pipelines/anima/modular_blocks_anima.py"
+	path2=path.replace("mokucola2/__init__.py","diffusers/modular_pipelines/anima/modular_blocks_anima.py")
+	response = requests.get(url2)
+	with open(path2, 'wb') as f:
+		f.write(response.content)
+	url2="https://raw.githubusercontent.com/huggingface/diffusers/refs/heads/main/src/diffusers/modular_pipelines/anima/before_denoise.py"
+	path2=path.replace("mokucola2/__init__.py","diffusers/modular_pipelines/anima/before_denoise.py")
+	response = requests.get(url2)
+	with open(path2, 'wb') as f:
+		f.write(response.content)
+	url2="https://raw.githubusercontent.com/huggingface/diffusers/refs/heads/main/src/diffusers/modular_pipelines/anima/encoders.py"
+	path2=path.replace("mokucola2/__init__.py","diffusers/modular_pipelines/anima/encoders.py")
+	response = requests.get(url2)
+	with open(path2, 'wb') as f:
+		f.write(response.content)
+
 	from .workflow import (
 		mokucola,
 		mokuup,
-		mokuani
+		mokuani,
+		mokusp
 	)
 	from .dl import (
 		dlc,
@@ -55,7 +75,8 @@ except:
 	f.write("from .workflow import (\n")
 	f.write("	mokucola,\n")
 	f.write("	mokuup,\n")
-	f.write("	mokuani\n")
+	f.write("	mokuani,\n")
+	f.write("	mokusp\n")
 	f.write(")\n")
 	f.write("from .dl import (\n")
 	f.write("	dlc,\n")

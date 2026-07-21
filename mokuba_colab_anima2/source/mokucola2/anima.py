@@ -1,6 +1,6 @@
 import torch
 from diffusers import (
-	ModularPipeline,
+	AnimaModularPipeline,
 	FlowMatchLCMScheduler,
 	FlowMatchEulerDiscreteScheduler
 )
@@ -116,7 +116,7 @@ class mokuanipipe:
 		else:
 			dtype=torch.float32
 
-		self.pipe = ModularPipeline.from_pretrained(base_safe)
+		self.pipe = AnimaModularPipeline.from_pretrained(base_safe)
 		self.pipe.load_components()
 		self.pipe.to(dtype=dtype,device=torch.device(dev))
 		
