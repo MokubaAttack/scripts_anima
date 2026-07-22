@@ -346,7 +346,7 @@ def zip_ckpt(pipe,transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd,full
 			t=p.data.to(torch.float32)
 			if k in text_encoder_sd:
 				sum1=torch.sum(torch.abs(t)).item()
-				sum2=torch.sum(torch.abs(sd[k].to(torch.float32))).item()
+				sum2=torch.sum(torch.abs(text_encoder_sd.pop(k).to(torch.float32))).item()
 				n=not(math.isnan(sum1) or math.isnan(sum2))
 				if n and sum1!=sum2:
 					t=t*sum2/sum1
