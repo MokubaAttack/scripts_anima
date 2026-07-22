@@ -160,11 +160,7 @@ vae_keys3={
 	"upsamples.9":"up_blocks.2.resnets.1",
 }
 
-def safe2diff(safe_path,id=None):
-	safe_path=safe_path.replace("\\","/")
-	base_path=safe_path.removesuffix('.safetensors')
-	if os.path.exists(base_path):
-		shutil.rmtree(base_path)
+def safe2diff(safe_path):
 	if not(os.path.exists(os.getcwd()+"/AnimaBaseV1")):
 		snapshot_download(repo_id="circlestone-labs/Anima-Base-v1.0-Diffusers", local_dir=os.getcwd()+"/AnimaBaseV1")
 
@@ -185,28 +181,9 @@ def safe2diff(safe_path,id=None):
 		json.dump(json_sd, f, indent=2)
 		f.close()
 
-	os.makedirs(base_path+"/text_conditioner")
-	os.makedirs(base_path+"/text_encoder")
-	os.makedirs(base_path+"/vae")
-	os.makedirs(base_path+"/transformer")
-
-	text_conditioner_path=base_path+"/text_conditioner/diffusion_pytorch_model.safetensors"
-	transformer_path=base_path+"/transformer/diffusion_pytorch_model.safetensors"
-	text_encoder_path=base_path+"/text_encoder/model.safetensors"
-	vae_path=base_path+"/vae/diffusion_pytorch_model.safetensors"
-
-	json_path=os.getcwd()+"/AnimaBaseV1/modular_model_index.json"
-	f=open(json_path,"r")
-	json_sd=json.load(f)
-	f.close()
-
-	json_sd["scheduler"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
-	json_sd["tokenizer"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
-	json_sd["t5_tokenizer"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
-	json_sd["text_conditioner"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
-	json_sd["text_encoder"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
-	json_sd["transformer"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
-	json_sd["vae"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		f=open(os.getcwd()+"/AnimaBaseV1/id.txt","w")
+		f.write("2945208")
+		f.close()
 
 	sd=load_file(safe_path)
 	keys=[]
@@ -284,54 +261,5 @@ def safe2diff(safe_path,id=None):
 
 			raise RuntimeError(f"Unsupported Anima checkpoint key: {k}")
 
-	if transformer_sd!={}:
-		save_file(transformer_sd,transformer_path)
-		json_sd["transformer"][-1]["pretrained_model_name_or_path"]=base_path
-		files = os.listdir(os.getcwd()+"/AnimaBaseV1/transformer")
-		for file in files:
-			if file!="diffusion_pytorch_model.safetensors":
-				shutil.copy(
-					os.getcwd()+"/AnimaBaseV1/transformer/"+file,
-					base_path+"/transformer/"+file
-				)
-	if text_conditioner_sd!={}:
-		save_file(text_conditioner_sd,text_conditioner_path)
-		json_sd["text_conditioner"][-1]["pretrained_model_name_or_path"]=base_path
-		files = os.listdir(os.getcwd()+"/AnimaBaseV1/text_conditioner")
-		for file in files:
-			if file!="diffusion_pytorch_model.safetensors":
-				shutil.copy(
-					os.getcwd()+"/AnimaBaseV1/text_conditioner/"+file,
-					base_path+"/text_conditioner/"+file
-				)
-	if vae_sd!={}:
-		save_file(vae_sd,vae_path)
-		json_sd["vae"][-1]["pretrained_model_name_or_path"]=base_path
-		files = os.listdir(os.getcwd()+"/AnimaBaseV1/vae")
-		for file in files:
-			if file!="diffusion_pytorch_model.safetensors":
-				shutil.copy(
-					os.getcwd()+"/AnimaBaseV1/vae/"+file,
-					base_path+"/vae/"+file
-				)
-	if text_encoder_sd!={}:
-		save_file(text_encoder_sd,text_encoder_path)
-		json_sd["text_encoder"][-1]["pretrained_model_name_or_path"]=base_path
-		files = os.listdir(os.getcwd()+"/AnimaBaseV1/text_encoder")
-		for file in files:
-			if file!="model.safetensors":
-				shutil.copy(
-					os.getcwd()+"/AnimaBaseV1/text_encoder/"+file,
-					base_path+"/text_encoder/"+file
-				)
-
-	json_path=base_path+"/modular_model_index.json"
-	f=open(json_path,"w")
-	json.dump(json_sd, f, indent=2)
-	f.close()
-
-	if id!=None:
-		f=open(base_path+"/id.txt","w")
-		f.write(id)
-		f.close()
-	return base_path
+	
+	return transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd
