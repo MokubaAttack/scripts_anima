@@ -1,12 +1,8 @@
 import gc
 import torch
 import safetensors
-from safetensors.torch import (
-	load_file,
-	save_file
-)
+from safetensors.torch import load_file
 import os
-import shutil
 from huggingface_hub import snapshot_download
 import re
 import json
