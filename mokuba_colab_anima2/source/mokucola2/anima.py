@@ -95,19 +95,6 @@ class mokuanipipe:
 		if not(os.path.exists(base_safe)):
 			print("the checkpoint file does not exist.")
 			return -1
-		if base_safe.endswith(".safetensors"):
-			self.meta_dict["ckpt"]=getid(base_safe,None)
-			self.meta_dict["ckpt_name"]=base_safe
-			base_safe=safe2diff(safe_path=base_safe,id=self.meta_dict["ckpt"])
-		else:
-			if os.path.exists(base_safe+"/id.txt"):
-				f=open(base_safe+"/id.txt","r")
-				self.meta_dict["ckpt"]=f.read()
-				f.close()
-			else:
-				self.meta_dict["ckpt"]=""
-			self.meta_dict["ckpt_name"]=base_safe
-		flush()
 
 		if dtype=="bf16":
 			dtype=torch.bfloat16
@@ -120,7 +107,7 @@ class mokuanipipe:
 			self.meta_dict["ckpt"]=getid(base_safe,None)
 			self.meta_dict["ckpt_name"]=base_safe
 			transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd=safe2diff(safe_path=base_safe)
-			self.pipe = AnimaModularPipeline.from_pretrained(base_safe)
+			self.pipe = AnimaModularPipeline.from_pretrained(os.getcwd()+"/AnimaBaseV1")
 			self.pipe.load_components(torch_dtype=torch.bfloat16)
 			self.pipe.to(dev)
 			self.pipe.to(dtype)
