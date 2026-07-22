@@ -117,8 +117,9 @@ class mokuanipipe:
 			dtype=torch.float32
 
 		self.pipe = AnimaModularPipeline.from_pretrained(base_safe)
-		self.pipe.load_components(torch_dtype=dtype)
-		self.pipe.to(device=torch.device(dev))
+		self.pipe.load_components(torch_dtype=torch.bfloat16)
+		self.pipe.to(dev)
+		self.pipe.to(dtype)
 		
 		if sgm.lower()=="karras":
 			sgmuse=[True,False,False]
