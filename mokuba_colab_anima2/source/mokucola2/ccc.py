@@ -256,6 +256,5 @@ def safe2diff(safe_path):
 					continue
 
 			raise RuntimeError(f"Unsupported Anima checkpoint key: {k}")
-
-	
+			
 	return transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd
