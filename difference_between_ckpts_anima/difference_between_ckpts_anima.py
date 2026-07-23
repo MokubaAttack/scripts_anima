@@ -223,7 +223,7 @@ def folder2diff(path,transfomer_out,text_conditioner_out,text_encoder_out):
 				sd2[k]=sd22[k]
 		keys=list(sd2)
 		for k in keys:
-			if not(k in sd22) or not(k.startswith("blocks"):
+			if not(k in sd22) or not(k.startswith("blocks")):
 				del sd2[k]
 	else:
 		sd2={}
