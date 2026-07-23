@@ -121,7 +121,7 @@ def safe2diff(safe_path,transfomer_out,text_conditioner_out,text_encoder_out):
 			else:
 				mapped = root_map.get(mk)
 				if mapped is not None:
-					#transformer_sd[mapped] = sd[k]
+					transformer_sd[mapped] = sd[k]
 					continue
 
 				block_re = re.compile(r"^blocks\.(\d+)\.(.+)$")
@@ -141,13 +141,20 @@ def safe2diff(safe_path,transfomer_out,text_conditioner_out,text_encoder_out):
 		for k in sd2:
 			if not(k in text_conditioner_sd) and k.startswith("blocks"):
 				text_conditioner_sd[k]=sd2[k]
+		keys=list(text_conditioner_sd)
+		for k in keys:
+			if not(k in sd2):
+				del text_conditioner_sd[k]
 	else:
 		text_conditioner_sd={}
 	if transfomer_out:
 		sd2=load_file(os.getcwd()+"/AnimaBaseV1/transformer/diffusion_pytorch_model.safetensors")
 		for k in sd2:
-			if not(k in transformer_sd) and k.startswith("transformer_blocks"):
-				transformer_sd[k]=sd2[k]
+			transformer_sd[k]=sd2[k]
+		keys=list(transformer_sd)
+		for k in keys:
+			if not(k in sd2):
+				del transformer_sd[k]
 	else:
 		transformer_sd={}
 	if text_encoder_out:
@@ -155,6 +162,10 @@ def safe2diff(safe_path,transfomer_out,text_conditioner_out,text_encoder_out):
 		for k in sd2:
 			if not(k in text_encoder_sd) and k.startswith("layers"):
 				text_encoder_sd[k]=sd2[k]
+		keys=list(text_encoder_sd)
+		for k in keys:
+			if not(k in sd2):
+				del text_encoder_sd[k]
 	else:
 		text_encoder_sd={}
 
@@ -200,7 +211,7 @@ def folder2diff(path,transfomer_out,text_conditioner_out,text_encoder_out):
 				sd1[k]=sd22[k]
 		keys=list(sd1)
 		for k in keys:
-			if not(k.startswith("transformer_blocks")):
+			if not(k in sd22):
 				del sd1[k]
 	else:
 		sd1={}
@@ -212,7 +223,7 @@ def folder2diff(path,transfomer_out,text_conditioner_out,text_encoder_out):
 				sd2[k]=sd22[k]
 		keys=list(sd2)
 		for k in keys:
-			if not(k.startswith("blocks")):
+			if not(k in sd22) or not(k.startswith("blocks"):
 				del sd2[k]
 	else:
 		sd2={}
@@ -224,7 +235,7 @@ def folder2diff(path,transfomer_out,text_conditioner_out,text_encoder_out):
 				sd3[k]=sd22[k]
 		keys=list(sd3)
 		for k in keys:
-			if not(k.startswith("layers")):
+			if not(k.startswith("layers")) or not(k in sd22):
 				del sd3[k]
 	else:
 		sd3={}
