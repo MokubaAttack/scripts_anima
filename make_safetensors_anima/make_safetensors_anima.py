@@ -22,6 +22,7 @@ from lycoris.modules.glora import GLoRAModule
 from lycoris.modules.dylora import DyLoraModule
 from lycoris.modules.ia3 import IA3Module
 import gc
+from huggingface_hub import snapshot_download
 
 MODULE_LIST = [
 	LoConModule,
