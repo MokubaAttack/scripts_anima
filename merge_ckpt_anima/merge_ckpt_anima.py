@@ -226,6 +226,29 @@ def safe2diff(safe_path,ff):
 	return transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd
 
 def folder2diff(path,ff):
+	if not(os.path.exists(os.getcwd()+"/AnimaBaseV1")):
+		snapshot_download(repo_id="circlestone-labs/Anima-Base-v1.0-Diffusers", local_dir=os.getcwd()+"/AnimaBaseV1")
+
+		json_path=os.getcwd()+"/AnimaBaseV1/modular_model_index.json"
+		f=open(json_path,"r")
+		json_sd=json.load(f)
+		f.close()
+
+		json_sd["scheduler"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["tokenizer"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["t5_tokenizer"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["text_conditioner"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["text_encoder"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["transformer"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["vae"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+
+		f=open(json_path,"w")
+		json.dump(json_sd, f, indent=2)
+		f.close()
+
+		f=open(os.getcwd()+"/AnimaBaseV1/id.txt","w")
+		f.write("2945208")
+		f.close()
 	f=open(path+"/modular_model_index.json","r")
 	json_sd=json.load(f)
 	f.close()
@@ -235,33 +258,30 @@ def folder2diff(path,ff):
 	transformer_path=json_sd["transformer"][-1]["pretrained_model_name_or_path"]+"/"+json_sd["transformer"][-1]["subfolder"]+"/diffusion_pytorch_model.safetensors"
 	vae_path=json_sd["vae"][-1]["pretrained_model_name_or_path"]+"/"+json_sd["vae"][-1]["subfolder"]+"/diffusion_pytorch_model.safetensors"
 	sd1=load_file(transformer_path)
+	sd22=load_file(os.getcwd()+"/AnimaBaseV1/text_conditioner/diffusion_pytorch_model.safetensors")
+	for k in sd22:
+		if not(k in sd1):
+			sd1[k]=sd22[k]
 	sd2=load_file(text_conditioner_path)
+	sd22=load_file(os.getcwd()+"/AnimaBaseV1/text_conditioner/diffusion_pytorch_model.safetensors")
+	for k in sd22:
+		if not(k in sd2):
+			sd2[k]=sd22[k]
 	if ff:
 		sd3=load_file(text_encoder_path)
+		sd22=load_file(os.getcwd()+"/AnimaBaseV1/text_encoder/model.safetensors")
+		for k in sd22:
+			if not(k in sd3):
+				sd3[k]=sd22[k]
 		sd4=load_file(vae_path)
+		sd22=load_file(os.getcwd()+"/AnimaBaseV1/vae/diffusion_pytorch_model.safetensors")
+		for k in sd22:
+			if not(k in sd4):
+				sd4[k]=sd22[k]
 	else:
 		sd3={}
 		sd4={}
 	return sd1,sd2,sd3,sd4
-
-def modckpt(path,ff):
-	sd=load_file(path)
-	sd = _strip_wrapping_prefixes(sd)
-	core_state_dict, llm_adapter_state_dict = _convert_anima_state_dict_to_diffusers(sd)
-	sd={**core_state_dict, **llm_adapter_state_dict}
-	if ff:
-		vsd,tsd=_vae_text_check(path)
-		if vsd=={} or tsd=={}:
-			pipe=AnimaPipeline.from_pretrained("hdae/diffusers-anima-preview",transformer=None)
-			if vsd=={}:
-				for k,p in getattr(pipe, "vae").named_parameters():
-					vsd[k]=p.data
-			if tsd=={}:
-				for k,p in getattr(pipe, "text_encoder").named_parameters():
-					tsd[k]=p.data
-		return sd,vsd,tsd
-	else:
-		return sd,{},{}
 
 def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None,v=0):
 	if win!=None:
@@ -273,7 +293,7 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None,v=0):
 				print(path+" does not exist.")
 			else:
 				win["RUN"].Update(disabled=False)
-				win["info"].update(os.path.basename(path)+" does not exist.")
+				win["info"].update(path+" does not exist.")
 			return
 
 	if not(mode in ["normal","tensor1","tensor2"]):
@@ -349,8 +369,17 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None,v=0):
 			print("\rmerging "+str(key_count)+"/"+str(dict_sum),end="")
 
 		out_dict={}
-		t1=sd10.pop(k).to(torch.float32)
-		t2=sd20.pop(k).to(torch.float32)
+		try:
+			t1=sd10.pop(k).to(torch.float32)
+			t2=sd20.pop(k).to(torch.float32)
+		except:
+			if win==None:
+				print("Unsupported Anima checkpoint key: "+k)
+			else:
+				win["RUN"].Update(disabled=False)
+				win["info"].update("Unsupported Anima checkpoint key: "+k)
+			shutil.rmtree(os.getcwd()+"/safe_temp")
+			return
 
 		block_re = re.compile(r"^transformer_blocks\.(\d+)\.(.+)$")
 		m = block_re.match(k)
@@ -427,8 +456,17 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None,v=0):
 			print("\rmerging "+str(key_count)+"/"+str(dict_sum),end="")
 
 		out_dict={}
-		t1=sd11.pop(k).to(torch.float32)
-		t2=sd21.pop(k).to(torch.float32)
+		try:
+			t1=sd11.pop(k).to(torch.float32)
+			t2=sd21.pop(k).to(torch.float32)
+		except:
+			if win==None:
+				print("Unsupported Anima checkpoint key: "+k)
+			else:
+				win["RUN"].Update(disabled=False)
+				win["info"].update("Unsupported Anima checkpoint key: "+k)
+			shutil.rmtree(os.getcwd()+"/safe_temp")
+			return
 
 		k="model.diffusion_model.llm_adapter."+k
 		w=ws[29]
@@ -490,8 +528,17 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None,v=0):
 			print("\rmerging "+str(key_count)+"/"+str(dict_sum),end="")
 
 		out_dict={}
-		t1=sd12.pop(k).to(torch.float32)
-		t2=sd22.pop(k).to(torch.float32)
+		try:
+			t1=sd12.pop(k).to(torch.float32)
+			t2=sd22.pop(k).to(torch.float32)
+		except:
+			if win==None:
+				print("Unsupported Anima checkpoint key: "+k)
+			else:
+				win["RUN"].Update(disabled=False)
+				win["info"].update("Unsupported Anima checkpoint key: "+k)
+			shutil.rmtree(os.getcwd()+"/safe_temp")
+			return
 
 		k="cond_stage_model.qwen3_06b.transformer.model."+k
 		w=ws[0]
@@ -553,8 +600,17 @@ def mergeckpt(ckpts,ws,out_path,mode="normal",ff=True,win=None,v=0):
 			print("\rmerging "+str(key_count)+"/"+str(dict_sum),end="")
 
 		out_dict={}
-		t1=sd13.pop(k).to(torch.float32)
-		t2=sd23.pop(k).to(torch.float32)
+		try:
+			t1=sd13.pop(k).to(torch.float32)
+			t2=sd23.pop(k).to(torch.float32)
+		except:
+			if win==None:
+				print("Unsupported Anima checkpoint key: "+k)
+			else:
+				win["RUN"].Update(disabled=False)
+				win["info"].update("Unsupported Anima checkpoint key: "+k)
+			shutil.rmtree(os.getcwd()+"/safe_temp")
+			return
 
 		if k.startswith("encoder."):
 			for k2 in vae_keys2_swap:
