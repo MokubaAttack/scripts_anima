@@ -82,7 +82,7 @@ def safe2diff(safe_path,transfomer_out,text_conditioner_out,text_encoder_out):
 		keys.append(k)
 		if k.endswith(check):
 			head=k.removesuffix(check[0])
-			head=k.removesuffix(check[1])
+			head=head.removesuffix(check[1])
 
 	text_conditioner_sd={}
 	transformer_sd={}
