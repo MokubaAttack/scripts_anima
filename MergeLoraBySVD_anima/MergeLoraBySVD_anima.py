@@ -68,7 +68,7 @@ def convkey(raw_path):
 			mpath="lora_unet_"+m.group()
 			mappings[path]=mpath
 			continue
-		m=re.match(r"blocks_([0-9]+)_(.+)$",mpath)
+		m=re.search(r"blocks_([0-9]+)_(.+)$",mpath)
 		if m!=None:
 			ind=m.group(1)
 			tail=m.group(2)
