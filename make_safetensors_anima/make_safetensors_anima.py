@@ -567,11 +567,11 @@ def mksafe(base_path,loras,ws,out_path,full_file,win=None):
 			for m in MODULE_LIST:
 				for k in m.weight_list_det:
 					for k2 in sd:
+						if k2.endswith(("lora_B.weight","lora_up.weight")):
+							MODULE_type="B"
+							break
 						if k2.endswith(k):
 							MODULE_type=m
-							break
-						elif k2.endswith("lora_B.weight"):
-							MODULE_type="B"
 							break
 					if MODULE_type!=None:
 						break
@@ -594,6 +594,10 @@ def mksafe(base_path,loras,ws,out_path,full_file,win=None):
 						kk=k2.replace("lora_B.weight","alpha")
 						if not(kk in sd):
 							sd[kk]=torch.tensor(sd[k].size()[1])
+					elif k2.endswith("lora_up.weight"):
+						kk=k2.replace("lora_up.weight","alpha")
+						if not(kk in sd):
+							sd[kk]=torch.tensor(sd[k2].size()[1])
 					elif k2.endswith("lora_A.weight"):
 						k=k2.replace("lora_A.weight","lora_down.weight")
 						sd[k]=sd.pop(k2)
