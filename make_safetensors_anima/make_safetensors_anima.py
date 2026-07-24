@@ -149,7 +149,7 @@ vae_keys3={
 	"upsamples.9":"up_blocks.2.resnets.1",
 }
 
-def safe2diff(safe_path):
+def safe2diff(safe_path,ff):
 	if not(os.path.exists(os.getcwd()+"/AnimaBaseV1")):
 		snapshot_download(repo_id="circlestone-labs/Anima-Base-v1.0-Diffusers", local_dir=os.getcwd()+"/AnimaBaseV1")
 
@@ -188,21 +188,13 @@ def safe2diff(safe_path):
 	text_conditioner_sd={}
 	transformer_sd={}
 	vae_sd={}
-	text_encoder_sd={}		
+	text_encoder_sd={}
+	ig_key=[]
 	if head==None:
 		raise RuntimeError("Unsupported Anima checkpoint")
-
 	for k in keys:
-		p=False
-		for k2 in pass_keys:
-			if k2 in k:
-				p=True
-		if p:
-			continue
-
-		if head=="":
-			mk=k
-		elif k.startswith(head):
+		mk=k
+		if k.startswith(head):
 			mk=k.removeprefix(head)
 		elif k.startswith("first_stage_model."):
 			mk=k.removeprefix("first_stage_model.")
@@ -221,17 +213,18 @@ def safe2diff(safe_path):
 			mk=k.removeprefix("cond_stage_model.qwen3_06b.transformer.model.")
 			text_encoder_sd[mk]=sd[k]
 			continue
-		else:
-			continue
 
 		if mk.startswith("llm_adapter"):
 			mk=mk.removeprefix("llm_adapter.")
 			text_conditioner_sd[mk]=sd[k]
 			continue
-
+			
 		mapped = root_map.get(mk)
 		if mapped is not None:
 			transformer_sd[mapped] = sd[k]
+			continue
+		if mk in root_map.values():
+			transformer_sd[mk] = sd[k]
 			continue
 
 		block_re = re.compile(r"^blocks\.(\d+)\.(.+)$")
@@ -240,57 +233,82 @@ def safe2diff(safe_path):
 			block_index = m.group(1)
 			tail = m.group(2)
 			mapped_tail = block_maps.get(tail)
-			if mapped_tail is None:
-				raise RuntimeError(f"Unsupported Anima checkpoint key in blocks: {k}")
-			transformer_sd[f"transformer_blocks.{block_index}.{mapped_tail}"] = sd[k]
-			continue
+			if tail in block_maps.values():
+				mapped_tail=tail
+			if mapped_tail is not None:
+				transformer_sd[f"transformer_blocks.{block_index}.{mapped_tail}"] = sd[k]
+				continue
+		ig_key.append(k)
+		
+	plus_key=[[],[],[],[]]
 
-		raise RuntimeError(f"Unsupported Anima checkpoint key: {k}")
-	del sd
-	
-	if text_conditioner_sd!={}:
-		sd2=load_file(os.getcwd()+"/AnimaBaseV1/text_conditioner/diffusion_pytorch_model.safetensors")
-		for k in sd2:
-			if not(k in text_conditioner_sd):
-				text_conditioner_sd[k]=sd2[k]
-		keys=list(text_conditioner_sd)
-		for k in keys:
-			if not(k in sd2):
-				del text_conditioner_sd[k]
+	sd2=load_file(os.getcwd()+"/AnimaBaseV1/text_conditioner/diffusion_pytorch_model.safetensors")
+	for k in sd2:
+		if not(k in text_conditioner_sd):
+			text_conditioner_sd[k]=sd2[k]
+			plus_key[1].append("text_conditioner."+k)
+	if len(plus_key[1])==len(list(sd2)):
+		plus_key[1]=["text_conditioner.all"]
+	keys=list(text_conditioner_sd)
+	for k in keys:
+		if not(k in sd2):
+			del text_conditioner_sd[k]
 
-	if transformer_sd!={}:
-		sd2=load_file(os.getcwd()+"/AnimaBaseV1/transformer/diffusion_pytorch_model.safetensors")
-		for k in sd2:
-			if not(k in transformer_sd):
-				transformer_sd[k]=sd2[k]
-		keys=list(transformer_sd)
-		for k in keys:
-			if not(k in sd2):
-				del transformer_sd[k]
+	sd2=load_file(os.getcwd()+"/AnimaBaseV1/transformer/diffusion_pytorch_model.safetensors")
+	for k in sd2:
+		if not(k in transformer_sd):
+			transformer_sd[k]=sd2[k]
+			plus_key[0].append("transformer."+k)
+	if len(plus_key[0])==len(list(sd2)):
+		plus_key[0]=["transformer.all"]
+	keys=list(transformer_sd)
+	for k in keys:
+		if not(k in sd2):
+			del transformer_sd[k]
 
-	if vae_sd!={}:
+	if ff:
 		sd2=load_file(os.getcwd()+"/AnimaBaseV1/vae/diffusion_pytorch_model.safetensors")
 		for k in sd2:
 			if not(k in vae_sd):
 				vae_sd[k]=sd2[k]
+				plus_key[3].append("vae."+k)
+		if len(plus_key[3])==len(list(sd2)):
+			plus_key[3]=["vae.all"]
 		keys=list(vae_sd)
 		for k in keys:
 			if not(k in sd2):
 				del vae_sd[k]
 
-	if text_encoder_sd!={}:
 		sd2=load_file(os.getcwd()+"/AnimaBaseV1/text_encoder/model.safetensors")
 		for k in sd2:
 			if not(k in text_encoder_sd):
 				text_encoder_sd[k]=sd2[k]
+				plus_key[2].append("text_encoder."+k)
+		if len(plus_key[2])==len(list(sd2)):
+			plus_key[2]=["text_encoder.all"]
 		keys=list(text_encoder_sd)
 		for k in keys:
 			if not(k in sd2):
 				del text_encoder_sd[k]
-
+	else:
+		vae_sd={}
+		text_encoder_sd={}
+	
+	del sd2
+	
+	f=open(safe_path+".txt","w")
+	f.write("minus\n")
+	for k in ig_key:
+		f.write(k+"\n")
+	f.write("plus\n")
+	for ks in plus_key:
+		for k in ks:
+			f.write(k+"\n")
+	f.close()
+	
 	return transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd
 
-def folder2diff(path):
+def folder2diff(path,ff):
 	if not(os.path.exists(os.getcwd()+"/AnimaBaseV1")):
 		snapshot_download(repo_id="circlestone-labs/Anima-Base-v1.0-Diffusers", local_dir=os.getcwd()+"/AnimaBaseV1")
 
@@ -323,46 +341,80 @@ def folder2diff(path):
 	transformer_path=json_sd["transformer"][-1]["pretrained_model_name_or_path"]+"/"+json_sd["transformer"][-1]["subfolder"]+"/diffusion_pytorch_model.safetensors"
 	vae_path=json_sd["vae"][-1]["pretrained_model_name_or_path"]+"/"+json_sd["vae"][-1]["subfolder"]+"/diffusion_pytorch_model.safetensors"
 	
+	plus_key=[[],[],[],[]]
+	ig_key=[]
+	
 	sd1=load_file(transformer_path)
-	sd22=load_file(os.getcwd()+"/AnimaBaseV1/text_conditioner/diffusion_pytorch_model.safetensors")
+	sd22=load_file(os.getcwd()+"/AnimaBaseV1/transformer/diffusion_pytorch_model.safetensors")
 	for k in sd22:
 		if not(k in sd1):
 			sd1[k]=sd22[k]
+			plus_key[0].append("transformer."+k)
+	if len(plus_key[0])==len(list(sd22)):
+		plus_key[0]=["transformer.all"]
 	keys=list(sd1)
 	for k in keys:
 		if not(k in sd22):
 			del sd1[k]
-
+			ig_key.append("transformer."+k)
+			
 	sd2=load_file(text_conditioner_path)
 	sd22=load_file(os.getcwd()+"/AnimaBaseV1/text_conditioner/diffusion_pytorch_model.safetensors")
 	for k in sd22:
 		if not(k in sd2):
 			sd2[k]=sd22[k]
+			plus_key[1].append("text_conditioner."+k)
+	if len(plus_key[1])==len(list(sd22)):
+		plus_key[1]=["text_conditioner.all"]
 	keys=list(sd2)
 	for k in keys:
 		if not(k in sd22):
 			del sd2[k]
-
-	sd3=load_file(text_encoder_path)
-	for k in sd22:
-		if not(k in sd3):
-			sd3[k]=sd22[k]
-	keys=list(sd3)
-	for k in keys:
-		if not(k in sd22):
-			del sd3[k]
-
-	sd4=load_file(vae_path)
-	sd22=load_file(os.getcwd()+"/AnimaBaseV1/vae/diffusion_pytorch_model.safetensors")
-	for k in sd22:
-		if not(k in sd4):
-			sd4[k]=sd22[k]
-	keys=list(sd4)
-	for k in keys:
-		if not(k in sd22):
-			del sd4[k]
+			ig_key.append("text_conditioner."+k)
+	if ff:
+		sd3=load_file(text_encoder_path)
+		sd22=load_file(os.getcwd()+"/AnimaBaseV1/text_encoder/model.safetensors")
+		for k in sd22:
+			if not(k in sd3):
+				sd3[k]=sd22[k]
+				plus_key[2].append("text_encoder."+k)
+		if len(plus_key[2])==len(list(sd22)):
+			plus_key[2]=["text_encoder.all"]
+		keys=list(sd3)
+		for k in keys:
+			if not(k in sd22):
+				del sd3[k]
+				ig_key.append("text_encoder."+k)
+				
+		sd4=load_file(vae_path)
+		sd22=load_file(os.getcwd()+"/AnimaBaseV1/vae/diffusion_pytorch_model.safetensors")
+		for k in sd22:
+			if not(k in sd4):
+				sd4[k]=sd22[k]
+				plus_key[3].append("vae."+k)
+		if len(plus_key[3])==len(list(sd22)):
+			plus_key[3]=["vae.all"]
+		keys=list(sd4)
+		for k in keys:
+			if not(k in sd22):
+				del sd4[k]
+				ig_key.append("vae."+k)
+	else:
+		sd3={}
+		sd4={}
+		
+	f=open(path+".txt","w")
+	f.write("minus\n")
+	for k in ig_key:
+		f.write(k+"\n")
+	f.write("plus\n")
+	for ks in plus_key:
+		for k in ks:
+			f.write(k+"\n")
+	f.close()
+	
 	return sd1,sd2,sd3,sd4
-
+	
 def zip_ckpt(pipe,transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd,full_file):
 	block_maps_swap = {v: k for k, v in block_maps.items()}
 	root_map_swap = {v: k for k, v in root_map.items()}
@@ -473,28 +525,27 @@ def mksafe(base_path,loras,ws,out_path,full_file,win=None):
 
 	try:
 		if base_path.endswith(".safetensors"):
-			transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd=safe2diff(safe_path=base_path)
-			pipe = AnimaModularPipeline.from_pretrained(os.getcwd()+"/AnimaBaseV1")
-			pipe.load_components()
-			if transformer_sd!={}:
-				for k,p in pipe.transformer.named_parameters():
-					p.data=transformer_sd.pop(k)
-			del transformer_sd
-			if text_encoder_sd!={}:
-				for k,p in pipe.text_encoder.named_parameters():
-					p.data=text_encoder_sd.pop(k)
-			del text_encoder_sd
-			if text_conditioner_sd!={}:
-				for k,p in pipe.text_conditioner.named_parameters():
-					p.data=text_conditioner_sd.pop(k)
-			del text_conditioner_sd
-			if vae_sd!={}:
-				for k,p in pipe.vae.named_parameters():
-					p.data=vae_sd.pop(k)
-			del vae_sd
+			transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd=safe2diff(safe_path=base_path,ff=full_file)
 		else:
-			pipe = AnimaModularPipeline.from_pretrained(base_path)
-			pipe.load_components()
+			transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd=folder2diff(path=base_path,ff=full_file)
+		pipe = AnimaModularPipeline.from_pretrained(os.getcwd()+"/AnimaBaseV1")
+		pipe.load_components()
+		if transformer_sd!={}:
+			for k,p in pipe.transformer.named_parameters():
+				p.data=transformer_sd.pop(k)
+		del transformer_sd
+		if text_encoder_sd!={}:
+			for k,p in pipe.text_encoder.named_parameters():
+				p.data=text_encoder_sd.pop(k)
+		del text_encoder_sd
+		if text_conditioner_sd!={}:
+			for k,p in pipe.text_conditioner.named_parameters():
+				p.data=text_conditioner_sd.pop(k)
+		del text_conditioner_sd
+		if vae_sd!={}:
+			for k,p in pipe.vae.named_parameters():
+				p.data=vae_sd.pop(k)
+		del vae_sd
 	except:
 		if win!=None:
 			win["RUN"].Update(disabled=False)
@@ -646,9 +697,9 @@ def mksafe(base_path,loras,ws,out_path,full_file,win=None):
 	else:
 		print("output ckpt file")
 	if base_path.endswith(".safetensors"):
-		transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd=safe2diff(safe_path=base_path)
+		transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd=safe2diff(safe_path=base_path,ff=full_file)
 	else:
-		transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd=folder2diff(path=base_path)
+		transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd=folder2diff(path=base_path,ff=full_file)
 	keys=zip_ckpt(pipe,transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd,full_file)
 	save_ckpt(keys,out_path)
 	shutil.rmtree(os.getcwd()+"/safe_temp")
