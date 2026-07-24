@@ -4,72 +4,91 @@ from safetensors.torch import (
 )
 import torch
 import os
+import re
 
-placeholders = {
-	"adaln_modulation_self_attn":"moku01",
-	"adaln_modulation_cross_attn":"moku02",
-	"adaln_modulation_mlp":"moku03",
-	"self_attn":"moku04",
-	"cross_attn":"moku05",
-	"output_proj":"moku06",
-	"q_proj":"moku07",
-	"k_proj":"moku08",
-	"v_proj":"moku09",
-	"x_embedder.proj.1": "moku10",
-	"t_embedder.1.linear_1": "moku11",
-	"t_embedder.1.linear_2": "moku12",
-	"final_layer.adaln_modulation.1": "moku13",
-	"final_layer.adaln_modulation.2": "moku14",
-	"final_layer.linear": "moku15",
+root_map = {
+	"x_embedder.proj.1.weight": "patch_embed.proj.weight",
+	"t_embedder.1.linear_1.weight": "time_embed.t_embedder.linear_1.weight",
+	"t_embedder.1.linear_2.weight": "time_embed.t_embedder.linear_2.weight",
+	"t_embedding_norm.weight": "time_embed.norm.weight",
+	"final_layer.adaln_modulation.1.weight": "norm_out.linear_1.weight",
+	"final_layer.adaln_modulation.2.weight": "norm_out.linear_2.weight",
+	"final_layer.linear.weight": "proj_out.weight",
 }
-placeholders2 = {
-	"embed_tokens":"moku01",
-	"input_layernorm":"moku02",
-	"down_proj":"moku03",
-	"gate_proj":"moku04",
-	"up_proj":"moku05",
-	"post_attention_layernorm":"moku06",
+
+block_maps = {
+	"adaln_modulation_self_attn.1.weight": "norm1.linear_1.weight",
+	"adaln_modulation_self_attn.2.weight": "norm1.linear_2.weight",
+	"adaln_modulation_cross_attn.1.weight": "norm2.linear_1.weight",
+	"adaln_modulation_cross_attn.2.weight": "norm2.linear_2.weight",
+	"adaln_modulation_mlp.1.weight": "norm3.linear_1.weight",
+	"adaln_modulation_mlp.2.weight": "norm3.linear_2.weight",
+	"self_attn.q_norm.weight": "attn1.norm_q.weight",
+	"self_attn.k_norm.weight": "attn1.norm_k.weight",
+	"self_attn.q_proj.weight": "attn1.to_q.weight",
+	"self_attn.k_proj.weight": "attn1.to_k.weight",
+	"self_attn.v_proj.weight": "attn1.to_v.weight",
+	"self_attn.output_proj.weight": "attn1.to_out.0.weight",
+	"cross_attn.q_norm.weight": "attn2.norm_q.weight",
+	"cross_attn.k_norm.weight": "attn2.norm_k.weight",
+	"cross_attn.q_proj.weight": "attn2.to_q.weight",
+	"cross_attn.k_proj.weight": "attn2.to_k.weight",
+	"cross_attn.v_proj.weight": "attn2.to_v.weight",
+	"cross_attn.output_proj.weight": "attn2.to_out.0.weight",
+	"mlp.layer1.weight": "ff.net.0.proj.weight",
+	"mlp.layer2.weight": "ff.net.2.weight",
 }
+block_maps_swap = {v.removesuffix(".weight").replace(".","_"): k.removesuffix(".weight").replace(".","_") for k, v in block_maps.items()}
+root_map_swap = {v.removesuffix(".weight").replace(".","_"): k.removesuffix(".weight").replace(".","_") for k, v in root_map.items()}
+
 endkeys=(".lora_A.weight",".lora_B.weight",".lora_down.weight",".lora_up.weight",".alpha")
 
 CLAMP_QUANTILE=0.99
 
 def convkey(raw_path):
 	sd=load_file(raw_path)
-	sd_keys=list(sd)
-	c=0
-	for path in sd_keys:
+
+	mappings={}
+	for path in sd:
 		if not(path.endswith((".lora_A.weight",".lora_down.weight"))):
-			if not(path.endswith(endkeys)):
-				sd.pop(path)
 			continue
-		c=c+1
 		if ".lora_A.weight" in path:
 			path=path.removesuffix(".lora_A.weight")
 		else:
 			path=path.removesuffix(".lora_down.weight")
 
-		if path.startswith("diffusion_model.") or path.startswith("text_encoders.qwen3_06b.transformer.model."):
-			mpath=path
-		elif path.startswith("lora_te_"):
-			mpath = path.removeprefix("lora_te_")
-			for key, token in placeholders2.items():
-				mpath =mpath.replace(key, token)
-			mpath = mpath.replace("_", ".")
-			for key, token in placeholders2.items():
-				mpath = mpath.replace(token, key)
-			mpath= "text_encoders.qwen3_06b.transformer.model."+mpath
-		elif path.startswith("lora_unet_"):
-			mpath = path.removeprefix("lora_unet_")
-			for key, token in placeholders.items():
-				mpath =mpath.replace(key, token)
-			mpath = mpath.replace("_", ".")
-			for key, token in placeholders.items():
-				mpath = mpath.replace(token, key)
-			mpath= "diffusion_model."+mpath
-		else:
-			return None
+		mpath=path.replace(".","_")
+		m=re.search(r"layers_([0-9]+)_(.+)$",mpath)
+		if m!=None:
+			mpath="lora_te_"+m.group()
+			mappings[path]=mpath
+			continue
+		m=re.search(r"llm_adapter_blocks_([0-9]+)_(.+)$",mpath)
+		if m!=None:
+			mpath="lora_unet_"+m.group()
+			mappings[path]=mpath
+			continue
+		m=re.match(r"blocks_([0-9]+)_(.+)$",mpath)
+		if m!=None:
+			ind=m.group(1)
+			tail=m.group(2)
+			mtail=block_maps_swap.get(tail,None)
+			if tail in block_maps_swap.values():
+				mtail=tail
+			if mtail!=None:
+				mappings[path]="lora_unet_blocks_"+str(ind)+"_"+mtail
+			continue
+		for k in root_map_swap:
+			if k in mpath:
+				mappings[path]="lora_unet_"+root_map_swap[k]
+				break
+		for k in root_map_swap.values():
+			if k in mpath:
+				mappings[path]="lora_unet_"+k
+				break
 
+	sd_out={}
+	for path in mappings:
 		for k in endkeys:
 			if path+k in sd:
 				w=sd.pop(path+k)
@@ -77,11 +96,8 @@ def convkey(raw_path):
 					k=".lora_A.weight"
 				elif k==".lora_up.weight":
 					k=".lora_B.weight"
-				sd[mpath+k]=w
-
-	if c==0:
-		return None
-	return sd
+				sd_out[mpath+k]=w
+	return sd_out
 
 def str_to_dtype(p):
 	if p == "float":
@@ -126,7 +142,7 @@ def main_part(
 		keys=[]
 		for lora in loras:
 			sd=convkey(lora)
-			if sd==None:
+			if sd=={}:
 				if win==None:
 					print(os.path.basename(lora)+" isn't supported.")
 				else:
@@ -161,17 +177,14 @@ def main_part(
 				wb=sds[i].pop(k.replace(".lora_A.weight",".lora_B.weight"))
 
 				network_dim = wa.size()[0]
-				if k.replace(".lora_A.weight",".alpha") in sds[i]:
-					alpha=sds[i].pop(k.replace(".lora_A.weight",".alpha"))
-				else:
-					alpha=network_dim
+				alpha=sds[i].pop(k.replace(".lora_A.weight",".alpha"),network_dim)
 				in_dim = wa.size()[1]
 				out_dim = wb.size()[0]
 				conv2d = len(wa.size()) == 4
 				kernel_size = None if not conv2d else wa.size()[2:4]
 				scale = alpha / network_dim
 
-				if type(mat) is int:
+				if mat==0:
 					mat = torch.zeros((out_dim, in_dim, *kernel_size) if conv2d else (out_dim, in_dim), dtype=merge_dtype)
 
 				if device:
