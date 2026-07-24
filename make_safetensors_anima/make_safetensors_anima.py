@@ -183,7 +183,7 @@ def safe2diff(safe_path,ff):
 		keys.append(k)
 		if k.endswith(check):
 			head=k.removesuffix(check[0])
-			head=k.removesuffix(check[1])
+			head=head.removesuffix(check[1])
 
 	text_conditioner_sd={}
 	transformer_sd={}
