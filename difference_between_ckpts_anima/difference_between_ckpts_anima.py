@@ -76,86 +76,113 @@ def safe2diff(safe_path,transfomer_out,text_conditioner_out,text_encoder_out):
 	sd=load_file(safe_path)
 	keys=[]
 	head=None
-	check="final_layer.linear.weight"
-	pass_keys=[
-		"pos_embedder.dim_spatial_range",
-		"pos_embedder.dim_temporal_range",
-		"pos_embedder.seq"
-	]
+	check=("final_layer.linear.weight","proj_out.weight")
+
 	for k in sd:
 		keys.append(k)
 		if k.endswith(check):
-			head=k.replace(check,"")
+			head=k.removesuffix(check[0])
+			head=k.removesuffix(check[1])
 
 	text_conditioner_sd={}
 	transformer_sd={}
-	text_encoder_sd={}		
+	text_encoder_sd={}
+	ig_key=[]
 	if head==None:
 		raise RuntimeError("Unsupported Anima checkpoint")
-	else:
-		for k in keys:
-			p=False
-			for k2 in pass_keys:
-				if k2 in k:
-					p=True
-			if p:
-				continue
-
-			if head=="":
-				mk=k
-			elif k.startswith(head):
-				mk=k.removeprefix(head)
-			elif k.startswith("cond_stage_model.qwen3_06b.transformer.model."):
-				mk=k.removeprefix("cond_stage_model.qwen3_06b.transformer.model.")
-				if mk.startswith("la")
+	for k in keys:
+		mk=k
+		if k.startswith(head):
+			mk=k.removeprefix(head)
+		elif k.startswith("cond_stage_model.qwen3_06b.transformer.model."):
+			mk=k.removeprefix("cond_stage_model.qwen3_06b.transformer.model.")
+			if mk.startswith("layers"):
 				text_encoder_sd[mk]=sd[k]
 				continue
-			else:
+
+		if mk.startswith("llm_adapter"):
+			mk=mk.removeprefix("llm_adapter.")
+			text_conditioner_sd[mk]=sd[k]
+			continue
+			
+		mapped = root_map.get(mk)
+		if mapped is not None:
+			transformer_sd[mapped] = sd[k]
+			continue
+		if mk in root_map.values():
+			transformer_sd[mk] = sd[k]
+			continue
+
+		block_re = re.compile(r"^blocks\.(\d+)\.(.+)$")
+		m = block_re.match(mk)
+		if m is not None:
+			block_index = m.group(1)
+			tail = m.group(2)
+			mapped_tail = block_maps.get(tail)
+			if tail in block_maps.values():
+				mapped_tail=tail
+			if mapped_tail is not None:
+				transformer_sd[f"transformer_blocks.{block_index}.{mapped_tail}"] = sd[k]
 				continue
+		ig_key.append(k)
 
-			if mk.startswith("llm_adapter"):
-				mk=mk.removeprefix("llm_adapter.")
-				text_conditioner_sd[mk]=sd[k]
-				continue
-			else:
-				mapped = root_map.get(mk)
-				if mapped is not None:
-					#transformer_sd[mapped] = sd[k]
-					continue
+	plus_key=[[],[],[],[]]
 
-				block_re = re.compile(r"^blocks\.(\d+)\.(.+)$")
-				m = block_re.match(mk)
-				if m is not None:
-					block_index = m.group(1)
-					tail = m.group(2)
-					mapped_tail = block_maps.get(tail)
-					if mapped_tail is None:
-						raise RuntimeError(f"Unsupported Anima checkpoint key in blocks: {k}")
-					transformer_sd[f"transformer_blocks.{block_index}.{mapped_tail}"] = sd[k]
-					continue
-
-			raise RuntimeError(f"Unsupported Anima checkpoint key: {k}")
 	if text_conditioner_out:
 		sd2=load_file(os.getcwd()+"/AnimaBaseV1/text_conditioner/diffusion_pytorch_model.safetensors")
 		for k in sd2:
 			if not(k in text_conditioner_sd):
 				text_conditioner_sd[k]=sd2[k]
+				plus_key[1].append("text_conditioner."+k)
+		if len(plus_key[1])==len(list(sd2)):
+			plus_key[1]=["text_conditioner.all"]
+		keys=list(text_conditioner_sd)
+		for k in keys:
+			if not(k in sd2):
+				del text_conditioner_sd[k]
+		del sd2
 	else:
 		text_conditioner_sd={}
+		
 	if transfomer_out:
 		sd2=load_file(os.getcwd()+"/AnimaBaseV1/transformer/diffusion_pytorch_model.safetensors")
 		for k in sd2:
 			if not(k in transformer_sd):
 				transformer_sd[k]=sd2[k]
+				plus_key[0].append("transformer."+k)
+		if len(plus_key[0])==len(list(sd2)):
+			plus_key[0]=["transformer.all"]
+		keys=list(transformer_sd)
+		for k in keys:
+			if not(k in sd2):
+				del transformer_sd[k]
+		del sd2
 	else:
 		transformer_sd={}
 	if text_encoder_out:
-		sd2=load_file(os.getcwd()+"/AnimaBaseV1/text_encoder/model.safetensors")
 		for k in sd2:
-			if not(k in text_encoder_sd):
+			if not(k in text_encoder_sd) and k.startswith("layers"):
 				text_encoder_sd[k]=sd2[k]
+				plus_key[2].append("text_encoder."+k)
+		if len(plus_key[2])==len(list(sd2)):
+			plus_key[2]=["text_encoder.all"]
+		keys=list(text_encoder_sd)
+		for k in keys:
+			if not(k in sd2):
+				del text_encoder_sd[k]
+		del sd2
 	else:
 		text_encoder_sd={}
+		
+	f=open(safe_path+".txt","w")
+	f.write("minus\n")
+	for k in ig_key:
+		f.write(k+"\n")
+	f.write("plus\n")
+	for ks in plus_key:
+		for k in ks:
+			f.write(k+"\n")
+	f.close()
 
 	return transformer_sd,text_conditioner_sd,text_encoder_sd
 
@@ -191,12 +218,23 @@ def folder2diff(path,transfomer_out,text_conditioner_out,text_encoder_out):
 	text_encoder_path=json_sd["text_encoder"][-1]["pretrained_model_name_or_path"]+"/"+json_sd["text_encoder"][-1]["subfolder"]+"/model.safetensors"
 	transformer_path=json_sd["transformer"][-1]["pretrained_model_name_or_path"]+"/"+json_sd["transformer"][-1]["subfolder"]+"/diffusion_pytorch_model.safetensors"
 	
+	plus_key=[[],[],[],[]]
+	ig_key=[]
+	
 	if transfomer_out:
 		sd1=load_file(transformer_path)
 		sd22=load_file(os.getcwd()+"/AnimaBaseV1/transformer/diffusion_pytorch_model.safetensors")
 		for k in sd22:
 			if not(k in sd1):
 				sd1[k]=sd22[k]
+				plus_key[0].append("transformer."+k)
+		if len(plus_key[0])==len(list(sd22)):
+			plus_key[0]=["transformer.all"]
+		keys=list(sd1)
+		for k in keys:
+			if not(k in sd22):
+				del sd1[k]
+				ig_key.append("transformer."+k)
 	else:
 		sd1={}
 	if text_conditioner_out:
@@ -205,6 +243,14 @@ def folder2diff(path,transfomer_out,text_conditioner_out,text_encoder_out):
 		for k in sd22:
 			if not(k in sd2):
 				sd2[k]=sd22[k]
+				plus_key[1].append("text_conditioner."+k)
+		if len(plus_key[1])==len(list(sd22)):
+			plus_key[1]=["text_conditioner.all"]
+		keys=list(sd2)
+		for k in keys:
+			if not(k in sd22):
+				del sd2[k]
+				ig_key.append("text_conditioner."+k)
 	else:
 		sd2={}
 	if text_encoder_out:
@@ -213,8 +259,26 @@ def folder2diff(path,transfomer_out,text_conditioner_out,text_encoder_out):
 		for k in sd22:
 			if not(k in sd3):
 				sd3[k]=sd22[k]
+				plus_key[2].append("text_encoder."+k)
+		if len(plus_key[2])==len(list(sd22)):
+			plus_key[2]=["text_encoder.all"]
+		keys=list(sd3)
+		for k in keys:
+			if not(k in sd22):
+				del sd3[k]
+				ig_key.append("text_encoder."+k)
 	else:
 		sd3={}
+		
+	f=open(path+".txt","w")
+	f.write("minus\n")
+	for k in ig_key:
+		f.write(k+"\n")
+	f.write("plus\n")
+	for ks in plus_key:
+		for k in ks:
+			f.write(k+"\n")
+	f.close()
 	return sd1,sd2,sd3
 
 def main_part(
