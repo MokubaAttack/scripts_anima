@@ -202,22 +202,38 @@ def safe2diff(safe_path,ff):
 	for k in sd2:
 		if not(k in text_conditioner_sd):
 			text_conditioner_sd[k]=sd2[k]
+	keys=list(text_conditioner_sd)
+	for k in keys:
+		if not(k in sd2):
+			del text_conditioner_sd[k]
 
 	sd2=load_file(os.getcwd()+"/AnimaBaseV1/transformer/diffusion_pytorch_model.safetensors")
 	for k in sd2:
 		if not(k in transformer_sd):
 			transformer_sd[k]=sd2[k]
+	keys=list(transformer_sd)
+	for k in keys:
+		if not(k in sd2):
+			del transformer_sd[k]
 
 	if ff:
 		sd2=load_file(os.getcwd()+"/AnimaBaseV1/vae/diffusion_pytorch_model.safetensors")
 		for k in sd2:
 			if not(k in vae_sd):
 				vae_sd[k]=sd2[k]
+		keys=list(vae_sd)
+		for k in keys:
+			if not(k in sd2):
+				del vae_sd[k]
 
 		sd2=load_file(os.getcwd()+"/AnimaBaseV1/text_encoder/model.safetensors")
 		for k in sd2:
 			if not(k in text_encoder_sd):
 				text_encoder_sd[k]=sd2[k]
+		keys=list(text_encoder_sd)
+		for k in keys:
+			if not(k in sd2):
+				del text_encoder_sd[k]
 	else:
 		vae_sd={}
 		text_encoder_sd={}
@@ -262,22 +278,38 @@ def folder2diff(path,ff):
 	for k in sd22:
 		if not(k in sd1):
 			sd1[k]=sd22[k]
+	keys=list(sd1)
+	for k in keys:
+		if not(k in sd22):
+			del sd1[k]
 	sd2=load_file(text_conditioner_path)
 	sd22=load_file(os.getcwd()+"/AnimaBaseV1/text_conditioner/diffusion_pytorch_model.safetensors")
 	for k in sd22:
 		if not(k in sd2):
 			sd2[k]=sd22[k]
+	keys=list(sd2)
+	for k in keys:
+		if not(k in sd22):
+			del sd2[k]
 	if ff:
 		sd3=load_file(text_encoder_path)
 		sd22=load_file(os.getcwd()+"/AnimaBaseV1/text_encoder/model.safetensors")
 		for k in sd22:
 			if not(k in sd3):
 				sd3[k]=sd22[k]
+		keys=list(sd3)
+		for k in keys:
+			if not(k in sd22):
+				del sd3[k]
 		sd4=load_file(vae_path)
 		sd22=load_file(os.getcwd()+"/AnimaBaseV1/vae/diffusion_pytorch_model.safetensors")
 		for k in sd22:
 			if not(k in sd4):
 				sd4[k]=sd22[k]
+		keys=list(sd4)
+		for k in keys:
+			if not(k in sd22):
+				del sd4[k]
 	else:
 		sd3={}
 		sd4={}
