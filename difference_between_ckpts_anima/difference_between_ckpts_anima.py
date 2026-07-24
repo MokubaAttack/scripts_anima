@@ -107,21 +107,20 @@ def safe2diff(safe_path,transfomer_out,text_conditioner_out,text_encoder_out):
 				mk=k.removeprefix(head)
 			elif k.startswith("cond_stage_model.qwen3_06b.transformer.model."):
 				mk=k.removeprefix("cond_stage_model.qwen3_06b.transformer.model.")
-				if mk.startswith("layers"):
-					text_encoder_sd[mk]=sd[k]
+				if mk.startswith("la")
+				text_encoder_sd[mk]=sd[k]
 				continue
 			else:
 				continue
 
 			if mk.startswith("llm_adapter"):
 				mk=mk.removeprefix("llm_adapter.")
-				if mk.startswith("blocks"):
-					text_conditioner_sd[mk]=sd[k]
+				text_conditioner_sd[mk]=sd[k]
 				continue
 			else:
 				mapped = root_map.get(mk)
 				if mapped is not None:
-					transformer_sd[mapped] = sd[k]
+					#transformer_sd[mapped] = sd[k]
 					continue
 
 				block_re = re.compile(r"^blocks\.(\d+)\.(.+)$")
@@ -139,33 +138,22 @@ def safe2diff(safe_path,transfomer_out,text_conditioner_out,text_encoder_out):
 	if text_conditioner_out:
 		sd2=load_file(os.getcwd()+"/AnimaBaseV1/text_conditioner/diffusion_pytorch_model.safetensors")
 		for k in sd2:
-			if not(k in text_conditioner_sd) and k.startswith("blocks"):
+			if not(k in text_conditioner_sd):
 				text_conditioner_sd[k]=sd2[k]
-		keys=list(text_conditioner_sd)
-		for k in keys:
-			if not(k in sd2):
-				del text_conditioner_sd[k]
 	else:
 		text_conditioner_sd={}
 	if transfomer_out:
 		sd2=load_file(os.getcwd()+"/AnimaBaseV1/transformer/diffusion_pytorch_model.safetensors")
 		for k in sd2:
-			transformer_sd[k]=sd2[k]
-		keys=list(transformer_sd)
-		for k in keys:
-			if not(k in sd2):
-				del transformer_sd[k]
+			if not(k in transformer_sd):
+				transformer_sd[k]=sd2[k]
 	else:
 		transformer_sd={}
 	if text_encoder_out:
 		sd2=load_file(os.getcwd()+"/AnimaBaseV1/text_encoder/model.safetensors")
 		for k in sd2:
-			if not(k in text_encoder_sd) and k.startswith("layers"):
+			if not(k in text_encoder_sd):
 				text_encoder_sd[k]=sd2[k]
-		keys=list(text_encoder_sd)
-		for k in keys:
-			if not(k in sd2):
-				del text_encoder_sd[k]
 	else:
 		text_encoder_sd={}
 
@@ -209,10 +197,6 @@ def folder2diff(path,transfomer_out,text_conditioner_out,text_encoder_out):
 		for k in sd22:
 			if not(k in sd1):
 				sd1[k]=sd22[k]
-		keys=list(sd1)
-		for k in keys:
-			if not(k in sd22):
-				del sd1[k]
 	else:
 		sd1={}
 	if text_conditioner_out:
@@ -221,10 +205,6 @@ def folder2diff(path,transfomer_out,text_conditioner_out,text_encoder_out):
 		for k in sd22:
 			if not(k in sd2):
 				sd2[k]=sd22[k]
-		keys=list(sd2)
-		for k in keys:
-			if not(k in sd22) or not(k.startswith("blocks")):
-				del sd2[k]
 	else:
 		sd2={}
 	if text_encoder_out:
@@ -233,10 +213,6 @@ def folder2diff(path,transfomer_out,text_conditioner_out,text_encoder_out):
 		for k in sd22:
 			if not(k in sd3):
 				sd3[k]=sd22[k]
-		keys=list(sd3)
-		for k in keys:
-			if not(k.startswith("layers")) or not(k in sd22):
-				del sd3[k]
 	else:
 		sd3={}
 	return sd1,sd2,sd3
@@ -520,6 +496,7 @@ def main_part(
 				win["info"].update("Unsupported Anima checkpoint key: "+name)
 			shutil.rmtree(os.getcwd()+"/safe_temp")
 			return
+
 		mat=t2-t1
 
 		if mat.dim()==1:
