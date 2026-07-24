@@ -177,16 +177,13 @@ def safe2diff(safe_path):
 	sd=load_file(safe_path)
 	keys=[]
 	head=None
-	check="final_layer.linear.weight"
-	pass_keys=[
-		"pos_embedder.dim_spatial_range",
-		"pos_embedder.dim_temporal_range",
-		"pos_embedder.seq"
-	]
+	check=("final_layer.linear.weight","proj_out.weight")
+
 	for k in sd:
 		keys.append(k)
 		if k.endswith(check):
-			head=k.replace(check,"")
+			head=k.removesuffix(check[0])
+			head=k.removesuffix(check[1])
 
 	text_conditioner_sd={}
 	transformer_sd={}
@@ -194,65 +191,129 @@ def safe2diff(safe_path):
 	text_encoder_sd={}		
 	if head==None:
 		raise RuntimeError("Unsupported Anima checkpoint")
-	else:
+
+	for k in keys:
+		p=False
+		for k2 in pass_keys:
+			if k2 in k:
+				p=True
+		if p:
+			continue
+
+		if head=="":
+			mk=k
+		elif k.startswith(head):
+			mk=k.removeprefix(head)
+		elif k.startswith("first_stage_model."):
+			mk=k.removeprefix("first_stage_model.")
+			if k.startswith("first_stage_model.encoder."):
+				for k2 in vae_keys2:
+					mk=mk.replace(k2,vae_keys2[k2])
+			elif k.startswith("first_stage_model.decoder."):
+				for k2 in vae_keys3:
+					mk=mk.replace(k2,vae_keys3[k2])
+			else:
+				for k2 in vae_keys1:
+					mk=mk.replace(k2,vae_keys1[k2])
+			vae_sd[mk]=sd[k]
+			continue
+		elif k.startswith("cond_stage_model.qwen3_06b.transformer.model."):
+			mk=k.removeprefix("cond_stage_model.qwen3_06b.transformer.model.")
+			text_encoder_sd[mk]=sd[k]
+			continue
+		else:
+			continue
+
+		if mk.startswith("llm_adapter"):
+			mk=mk.removeprefix("llm_adapter.")
+			text_conditioner_sd[mk]=sd[k]
+			continue
+
+		mapped = root_map.get(mk)
+		if mapped is not None:
+			transformer_sd[mapped] = sd[k]
+			continue
+
+		block_re = re.compile(r"^blocks\.(\d+)\.(.+)$")
+		m = block_re.match(mk)
+		if m is not None:
+			block_index = m.group(1)
+			tail = m.group(2)
+			mapped_tail = block_maps.get(tail)
+			if mapped_tail is None:
+				raise RuntimeError(f"Unsupported Anima checkpoint key in blocks: {k}")
+			transformer_sd[f"transformer_blocks.{block_index}.{mapped_tail}"] = sd[k]
+			continue
+
+		raise RuntimeError(f"Unsupported Anima checkpoint key: {k}")
+	del sd
+	
+	if text_conditioner_sd!={}:
+		sd2=load_file(os.getcwd()+"/AnimaBaseV1/text_conditioner/diffusion_pytorch_model.safetensors")
+		for k in sd2:
+			if not(k in text_conditioner_sd):
+				text_conditioner_sd[k]=sd2[k]
+		keys=list(text_conditioner_sd)
 		for k in keys:
-			p=False
-			for k2 in pass_keys:
-				if k2 in k:
-					p=True
-			if p:
-				continue
+			if not(k in sd2):
+				del text_conditioner_sd[k]
 
-			if head=="":
-				mk=k
-			elif k.startswith(head):
-				mk=k.removeprefix(head)
-			elif k.startswith("first_stage_model."):
-				mk=k.removeprefix("first_stage_model.")
-				if k.startswith("first_stage_model.encoder."):
-					for k2 in vae_keys2:
-						mk=mk.replace(k2,vae_keys2[k2])
-				elif k.startswith("first_stage_model.decoder."):
-					for k2 in vae_keys3:
-						mk=mk.replace(k2,vae_keys3[k2])
-				else:
-					for k2 in vae_keys1:
-						mk=mk.replace(k2,vae_keys1[k2])
-				vae_sd[mk]=sd[k]
-				continue
-			elif k.startswith("cond_stage_model.qwen3_06b.transformer.model."):
-				mk=k.removeprefix("cond_stage_model.qwen3_06b.transformer.model.")
-				text_encoder_sd[mk]=sd[k]
-				continue
-			else:
-				continue
+	if transformer_sd!={}:
+		sd2=load_file(os.getcwd()+"/AnimaBaseV1/transformer/diffusion_pytorch_model.safetensors")
+		for k in sd2:
+			if not(k in transformer_sd):
+				transformer_sd[k]=sd2[k]
+		keys=list(transformer_sd)
+		for k in keys:
+			if not(k in sd2):
+				del transformer_sd[k]
 
-			if mk.startswith("llm_adapter"):
-				mk=mk.removeprefix("llm_adapter.")
-				text_conditioner_sd[mk]=sd[k]
-				continue
-			else:
-				mapped = root_map.get(mk)
-				if mapped is not None:
-					transformer_sd[mapped] = sd[k]
-					continue
+	if vae_sd!={}:
+		sd2=load_file(os.getcwd()+"/AnimaBaseV1/vae/diffusion_pytorch_model.safetensors")
+		for k in sd2:
+			if not(k in vae_sd):
+				vae_sd[k]=sd2[k]
+		keys=list(vae_sd)
+		for k in keys:
+			if not(k in sd2):
+				del vae_sd[k]
 
-				block_re = re.compile(r"^blocks\.(\d+)\.(.+)$")
-				m = block_re.match(mk)
-				if m is not None:
-					block_index = m.group(1)
-					tail = m.group(2)
-					mapped_tail = block_maps.get(tail)
-					if mapped_tail is None:
-						raise RuntimeError(f"Unsupported Anima checkpoint key in blocks: {k}")
-					transformer_sd[f"transformer_blocks.{block_index}.{mapped_tail}"] = sd[k]
-					continue
-
-			raise RuntimeError(f"Unsupported Anima checkpoint key: {k}")
+	if text_encoder_sd!={}:
+		sd2=load_file(os.getcwd()+"/AnimaBaseV1/text_encoder/model.safetensors")
+		for k in sd2:
+			if not(k in text_encoder_sd):
+				text_encoder_sd[k]=sd2[k]
+		keys=list(text_encoder_sd)
+		for k in keys:
+			if not(k in sd2):
+				del text_encoder_sd[k]
 
 	return transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd
 
 def folder2diff(path):
+	if not(os.path.exists(os.getcwd()+"/AnimaBaseV1")):
+		snapshot_download(repo_id="circlestone-labs/Anima-Base-v1.0-Diffusers", local_dir=os.getcwd()+"/AnimaBaseV1")
+
+		json_path=os.getcwd()+"/AnimaBaseV1/modular_model_index.json"
+		f=open(json_path,"r")
+		json_sd=json.load(f)
+		f.close()
+
+		json_sd["scheduler"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["tokenizer"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["t5_tokenizer"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["text_conditioner"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["text_encoder"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["transformer"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+		json_sd["vae"][-1]["pretrained_model_name_or_path"]=os.getcwd()+"/AnimaBaseV1"
+
+		f=open(json_path,"w")
+		json.dump(json_sd, f, indent=2)
+		f.close()
+
+		f=open(os.getcwd()+"/AnimaBaseV1/id.txt","w")
+		f.write("2945208")
+		f.close()
 	f=open(path+"/modular_model_index.json","r")
 	json_sd=json.load(f)
 	f.close()
@@ -261,10 +322,45 @@ def folder2diff(path):
 	text_encoder_path=json_sd["text_encoder"][-1]["pretrained_model_name_or_path"]+"/"+json_sd["text_encoder"][-1]["subfolder"]+"/model.safetensors"
 	transformer_path=json_sd["transformer"][-1]["pretrained_model_name_or_path"]+"/"+json_sd["transformer"][-1]["subfolder"]+"/diffusion_pytorch_model.safetensors"
 	vae_path=json_sd["vae"][-1]["pretrained_model_name_or_path"]+"/"+json_sd["vae"][-1]["subfolder"]+"/diffusion_pytorch_model.safetensors"
+	
 	sd1=load_file(transformer_path)
+	sd22=load_file(os.getcwd()+"/AnimaBaseV1/text_conditioner/diffusion_pytorch_model.safetensors")
+	for k in sd22:
+		if not(k in sd1):
+			sd1[k]=sd22[k]
+	keys=list(sd1)
+	for k in keys:
+		if not(k in sd22):
+			del sd1[k]
+
 	sd2=load_file(text_conditioner_path)
+	sd22=load_file(os.getcwd()+"/AnimaBaseV1/text_conditioner/diffusion_pytorch_model.safetensors")
+	for k in sd22:
+		if not(k in sd2):
+			sd2[k]=sd22[k]
+	keys=list(sd2)
+	for k in keys:
+		if not(k in sd22):
+			del sd2[k]
+
 	sd3=load_file(text_encoder_path)
+	for k in sd22:
+		if not(k in sd3):
+			sd3[k]=sd22[k]
+	keys=list(sd3)
+	for k in keys:
+		if not(k in sd22):
+			del sd3[k]
+
 	sd4=load_file(vae_path)
+	sd22=load_file(os.getcwd()+"/AnimaBaseV1/vae/diffusion_pytorch_model.safetensors")
+	for k in sd22:
+		if not(k in sd4):
+			sd4[k]=sd22[k]
+	keys=list(sd4)
+	for k in keys:
+		if not(k in sd22):
+			del sd4[k]
 	return sd1,sd2,sd3,sd4
 
 def zip_ckpt(pipe,transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd,full_file):
