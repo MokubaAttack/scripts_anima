@@ -96,7 +96,7 @@ def convkey(raw_path):
 					k=".lora_A.weight"
 				elif k==".lora_up.weight":
 					k=".lora_B.weight"
-				sd_out[mpath+k]=w
+				sd_out[mappings[path]+k]=w
 	return sd_out
 
 def str_to_dtype(p):
@@ -165,7 +165,7 @@ def main_part(
 		if not(k.endswith(".lora_A.weight")):
 			continue
 
-		mat=0
+		first_take=True
 		for i in range(len(sds)):
 			if not(k in sds[i]):
 				continue
@@ -187,8 +187,9 @@ def main_part(
 			kernel_size = None if not conv2d else wa.size()[2:4]
 			scale = alpha / network_dim
 
-			if mat==0:
+			if first_take:
 				mat = torch.zeros((out_dim, in_dim, *kernel_size) if conv2d else (out_dim, in_dim), dtype=merge_dtype)
+				first_take=False
 
 			if device:
 				mat = mat.to(device)
