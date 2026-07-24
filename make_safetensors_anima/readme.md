@@ -3,8 +3,18 @@ It is a script that burns loras in a checkpoint.
 ## requirements
 python modules
 ```
-pip install git+https://github.com/hdae/diffusers-anima.git
-pip install FreeSimpleGUI pyperclip
+diffusers==0.39.0
+transformers==5.11.0
+torch==2.11.0
+torchvision==0.26.0
+accelerate
+lycoris-lora
+FreeSimpleGUI
+pyperclip
+compel
+realesrgan
+optimum-quanto
+piexif
 ```
 ## How to use
 1. Run this script.
