@@ -41,7 +41,8 @@ from .imgup import imgup
 from .ccc import (
 	flush,
 	getid,
-	safe2diff
+	safe2diff,
+	folder2diff
 )
 
 root_map = {
@@ -106,27 +107,7 @@ class mokuanipipe:
 		if base_safe.endswith(".safetensors"):
 			self.meta_dict["ckpt"]=getid(base_safe,None)
 			self.meta_dict["ckpt_name"]=base_safe
-			transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd=safe2diff(safe_path=base_safe)
-			self.pipe = AnimaModularPipeline.from_pretrained(os.getcwd()+"/AnimaBaseV1")
-			self.pipe.load_components(torch_dtype=torch.bfloat16)
-			self.pipe.to(dev)
-			self.pipe.to(dtype)
-			if transformer_sd!={}:
-				for k,p in self.pipe.transformer.named_parameters():
-					p.data=transformer_sd.pop(k).to(dev,dtype)
-			del transformer_sd
-			if text_encoder_sd!={}:
-				for k,p in self.pipe.text_encoder.named_parameters():
-					p.data=text_encoder_sd.pop(k).to(dev,dtype)
-			del text_encoder_sd
-			if text_conditioner_sd!={}:
-				for k,p in self.pipe.text_conditioner.named_parameters():
-					p.data=text_conditioner_sd.pop(k).to(dev,dtype)
-			del text_conditioner_sd
-			if vae_sd!={}:
-				for k,p in self.pipe.vae.named_parameters():
-					p.data=vae_sd.pop(k).to(dev,dtype)
-			del vae_sd
+			transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd=safe2diff(safe_path=base_safe,ff=True)
 		else:
 			if os.path.exists(base_safe+"/id.txt"):
 				f=open(base_safe+"/id.txt","r")
@@ -135,10 +116,28 @@ class mokuanipipe:
 			else:
 				self.meta_dict["ckpt"]=""
 			self.meta_dict["ckpt_name"]=base_safe
-			self.pipe = AnimaModularPipeline.from_pretrained(base_safe)
-			self.pipe.load_components(torch_dtype=torch.bfloat16)
-			self.pipe.to(dev)
-			self.pipe.to(dtype)
+			transformer_sd,text_conditioner_sd,text_encoder_sd,vae_sd=folder2diff(path=base_safe,ff=True)
+
+		self.pipe = AnimaModularPipeline.from_pretrained(os.getcwd()+"/AnimaBaseV1")
+		self.pipe.load_components(torch_dtype=torch.bfloat16)
+		self.pipe.to(dev)
+		self.pipe.to(dtype)
+		if transformer_sd!={}:
+			for k,p in self.pipe.transformer.named_parameters():
+				p.data=transformer_sd.pop(k).to(dev,dtype)
+		del transformer_sd
+		if text_encoder_sd!={}:
+			for k,p in self.pipe.text_encoder.named_parameters():
+				p.data=text_encoder_sd.pop(k).to(dev,dtype)
+		del text_encoder_sd
+		if text_conditioner_sd!={}:
+			for k,p in self.pipe.text_conditioner.named_parameters():
+				p.data=text_conditioner_sd.pop(k).to(dev,dtype)
+		del text_conditioner_sd
+		if vae_sd!={}:
+			for k,p in self.pipe.vae.named_parameters():
+				p.data=vae_sd.pop(k).to(dev,dtype)
+		del vae_sd
 		flush()
 		
 		if sgm.lower()=="karras":
