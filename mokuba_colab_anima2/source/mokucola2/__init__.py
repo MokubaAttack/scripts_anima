@@ -43,17 +43,17 @@ except:
 	f.close()
 
 	import requests
-	url2="https://raw.githubusercontent.com/huggingface/diffusers/refs/heads/main/src/diffusers/modular_pipelines/anima/modular_blocks_anima.py"
+	url2="https://raw.githubusercontent.com/huggingface/diffusers/e11810aa9123a4d924021fe6604838a2d5305a94/src/diffusers/modular_pipelines/anima/modular_blocks_anima.py"
 	path2=path.replace("mokucola2/__init__.py","diffusers/modular_pipelines/anima/modular_blocks_anima.py")
 	response = requests.get(url2)
 	with open(path2, 'wb') as f:
 		f.write(response.content)
-	url2="https://raw.githubusercontent.com/huggingface/diffusers/refs/heads/main/src/diffusers/modular_pipelines/anima/before_denoise.py"
+	url2="https://raw.githubusercontent.com/huggingface/diffusers/e11810aa9123a4d924021fe6604838a2d5305a94/src/diffusers/modular_pipelines/anima/before_denoise.py"
 	path2=path.replace("mokucola2/__init__.py","diffusers/modular_pipelines/anima/before_denoise.py")
 	response = requests.get(url2)
 	with open(path2, 'wb') as f:
 		f.write(response.content)
-	url2="https://raw.githubusercontent.com/huggingface/diffusers/refs/heads/main/src/diffusers/modular_pipelines/anima/encoders.py"
+	url2="https://raw.githubusercontent.com/huggingface/diffusers/e11810aa9123a4d924021fe6604838a2d5305a94/src/diffusers/modular_pipelines/anima/encoders.py"
 	path2=path.replace("mokucola2/__init__.py","diffusers/modular_pipelines/anima/encoders.py")
 	response = requests.get(url2)
 	with open(path2, 'wb') as f:
